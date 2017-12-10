@@ -1,6 +1,6 @@
 /**
  *  Simple Thermostat Manager
- *  Build 2017112501
+ *  Build 2017121003
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -15,14 +15,18 @@
  *
  *  ChangeLog:
  *     
+ *      20171210:
+ *          01: Corrected a mistake in the help paragraph.
+ *          02: Reconfigured the placement of the help text.
+ *          03: Added the ability to have Simple Thermostat Manager ignore a temperature threshold by manually setting it to 0.
+ *
+ *      20171125:
+ *          01: Reverted system back to using user defined boundaries.
+ *          02: Changed fanMode state check to check for "auto" instead of "fanAuto".
+ *
  *      Earlier:
  *          Creation
- *          Modified to use established thermostat setPoints rather than user defined boundaries
- *
- *      2017112501:
- *          Reverted system back to using user defined boundaries.
- *          Changed fanMode state check to check for "auto" instead of "fanAuto".
- *
+ *          Modified to use established thermostat setPoints rather than user defined boundaries.
  */
 definition(
     name: "Simple Thermostat Manager",
@@ -37,13 +41,16 @@ definition(
 
 preferences {
     section {
-        input "thermostat", "capability.thermostat", title: "Thermostat", multiple: "false", required: "true"
-        paragraph "When the temperature rises higher than the cooling threshold, Simple Thermostat Manager will set heating mode. When the temperature falls below the heating threshold, Simple Thermostat Manager will set cooling mode. Tip: If you set the cooling threshold at the lowest setting you use in your modes and you set the heating threshold at the highest setting you use in your modes, you will not need to create two instances of Simple Thermostat Manager."
-        input name: "coolingThreshold", title: "Cooling Threshold", type: "number", defaultValue: 75, required: "true"
-        input name: "heatingThreshold", title: "Heating Threshold", type: "number", defaultValue: 70, required: "true"
-        input name: "disable", title: "Disable Simple Thermostat Manager", type: "bool", defaultValue: "false", required: "true"
-        input name: "setFan", title: "Maintain Auto Fan Mode", type: "bool", defaultValue: "true", required: "true"
-        input name: "debug", title: "Debug Logging", type: "bool", defaultValue: "false", required: "true"
+        input "thermostat", "capability.thermostat", title: "Thermostat", multiple: false, required: true
+        paragraph "When the temperature rises higher than the cooling threshold, Simple Thermostat Manager will set cooling mode. Recommended value: 75"
+        input name: "coolingThreshold", title: "Cooling Threshold", type: "number", required: false
+        paragraph "When the temperature falls below the heating threshold, Simple Thermostat Manager will set heating mode. Recommended value: 70"
+        input name: "heatingThreshold", title: "Heating Threshold", type: "number", required: false
+        paragraph title: "Tips:", "If you set the cooling threshold at the lowest setting you use in your modes and you set the heating threshold at the highest setting you use in your modes, you will not need to create two instances of Simple Thermostat Manager."
+        paragraph "If you want to use Simple Thermostat Manager to set cooling mode only or to set heating mode only, remove the value for the threshold that you want to be ignored or set it to 0."
+        input name: "disable", title: "Disable Simple Thermostat Manager", type: "bool", defaultValue: false, required: true
+        input name: "setFan", title: "Maintain Auto Fan Mode", type: "bool", defaultValue: true, required: true
+        input name: "debug", title: "Debug Logging", type: "bool", defaultValue: false, required: true
     }
 }
 
@@ -83,10 +90,10 @@ def tempHandler(evt) {
     }
     
     // Hello Home only sets the setPoint for the active thermostat mode.
-    if ( (!disable) && (currentMode != "cool") && ( Math.round(currentTemp) > Math.round(coolingThreshold) ) ) {
+    if ( (!disable) && (currentMode != "cool") && coolingThreshold && ( Math.round(currentTemp) > Math.round(coolingThreshold) ) ) {
         log.debug "Simple Thermostat Manager setting cooling mode."
         thermostat.cool()
-    } else if ( (!disable) && (currentMode != "heat") && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
+    } else if ( (!disable) && (currentMode != "heat") && heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
         log.debug "Simple Thermostat Manager setting heating mode."
         thermostat.heat()
     } else if (debug) {
