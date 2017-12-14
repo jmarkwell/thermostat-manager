@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017121304
+ *  Build 2017121305
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -14,13 +14,14 @@
  *  for the specific language governing permissions and limitations under the License.
  *
  *  ChangeLog:
- *     
+ *      
  *      20171213:
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
  *              settings.
  *          02: Added notification capabilities.
  *          03: Renamed from, "Simple Thermostat Manager" to, "Thermostat Manager".
  *          04: Corrected an incorrect setPoint preference variable.
+ *          05: Edited the text of the text notification preference setting.
  *
  *      20171212:
  *          01: Added Hello Home mode value and Smart Home Monitor status value to debug logging.
@@ -107,7 +108,7 @@ def notificationPage() {
     dynamicPage(name:"notificationPage", title:"Notification Settings") {
         section() {
             input(name: "recipients", title: "Select Notification Recipients", type: "contact", required: false) {
-                input name: "phone", title: "Select Text Message Notification Recipients", type: "phone", required: false
+                input name: "phone", title: "Enter Phone Number of Text Message Notification Recipient", type: "phone", required: false
             }
         }
     }
