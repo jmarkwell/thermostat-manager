@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017121303
+ *  Build 2017121304
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -20,6 +20,7 @@
  *              settings.
  *          02: Added notification capabilities.
  *          03: Renamed from, "Simple Thermostat Manager" to, "Thermostat Manager".
+ *          04: Corrected an incorrect setPoint preference variable.
  *
  *      20171212:
  *          01: Added Hello Home mode value and Smart Home Monitor status value to debug logging.
@@ -97,7 +98,7 @@ def setPointPage() {
         }
         section("Armed (away) Status") {
             input name: "awayCoolingSetPoint", title: "Cooling SetPoint", type: "number", required: false
-            input name: "stayHeatingSetPoint", title: "Heating SetPoint", type: "number", required: false
+            input name: "awayHeatingSetPoint", title: "Heating SetPoint", type: "number", required: false
         }
     }
 }
