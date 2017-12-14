@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017121305
+ *  Build 2017121306
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -22,6 +22,7 @@
  *          03: Renamed from, "Simple Thermostat Manager" to, "Thermostat Manager".
  *          04: Corrected an incorrect setPoint preference variable.
  *          05: Edited the text of the text notification preference setting.
+ *          06: Menu cleanup.
  *
  *      20171212:
  *          01: Added Hello Home mode value and Smart Home Monitor status value to debug logging.
@@ -59,27 +60,29 @@ preferences {
 }
 
 def mainPage() {
-    dynamicPage(name: "mainPage", install: true, uninstall: true) {
+    dynamicPage(name: "mainPage", title: "Thermostat Manager", install: true, uninstall: true) {
         section() {
-            paragraph title: "Thermostat Manager", "Automatically changes the thermostat mode in response to changes in temperature that exceed user defined thresholds."
+            paragraph "Automatically changes the thermostat mode in response to changes in temperature that exceed user defined thresholds."
         }
-        section("Settings") {
+        section("Main Configuration") {
             input "thermostat", "capability.thermostat", title: "Thermostat", multiple: false, required: true
             paragraph "When the temperature rises higher than the cooling threshold, Thermostat Manager will set cooling mode. Recommended value: 75"
             input name: "coolingThreshold", title: "Cooling Threshold", type: "number", required: false
             paragraph "When the temperature falls below the heating threshold, Thermostat Manager will set heating mode. Recommended value: 70"
             input name: "heatingThreshold", title: "Heating Threshold", type: "number", required: false
-            paragraph title: "Tips:", "If you set the cooling threshold at the lowest setting you use in your modes and you set the heating threshold at the highest setting you use in your modes, you will not need to create two instances of Thermostat Manager."
+        }
+        section("Tips") {
+            paragraph "If you set the cooling threshold at the lowest setting you use in your modes and you set the heating threshold at the highest setting you use in your modes, you will not need to create multiple instances of Thermostat Manager."
             paragraph "If you want to use Thermostat Manager to set cooling mode only or to set heating mode only, remove the value for the threshold that you want to be ignored or set it to 0."
+        }
+        section("Optional Settings") {
+            input name: "setFan", title: "Maintain Auto Fan Mode", type: "bool", defaultValue: true, required: true
             href "setPointPage", title: "Smart Home Monitor Based SetPoint Enforcement"
             href "notificationPage", title: "Notification Settings"
-            input name: "setFan", title: "Maintain Auto Fan Mode", type: "bool", defaultValue: true, required: true
             input name: "debug", title: "Debug Logging", type: "bool", defaultValue: false, required: true
             input name: "disable", title: "Disable Thermostat Manager", type: "bool", defaultValue: false, required: true
-        }
-        section() {
-            mode(title: "Set for specific mode(s)")
             label(title: "Assign a name", required: false)
+            mode(title: "Set for specific mode(s)")
         }
     }
 }
