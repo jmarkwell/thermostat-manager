@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017121306
+ *  Build 2017151301
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -15,6 +15,10 @@
  *
  *  ChangeLog:
  *      
+ *      20171215:
+ *          01: Added capability to automatically set thermostat to "off" mode in the case that user selected contact
+ *              sensors have remained open for longer than a user specified number of minutes.
+ *
  *      20171213:
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
  *              settings.
@@ -57,6 +61,7 @@ preferences {
     page(name: "mainPage")
     page(name: "setPointPage")
     page(name: "notificationPage")
+    page(name: "energySaverPage")
 }
 
 def mainPage() {
@@ -78,6 +83,7 @@ def mainPage() {
         section("Optional Settings") {
             input name: "setFan", title: "Maintain Auto Fan Mode", type: "bool", defaultValue: true, required: true
             href "setPointPage", title: "Smart Home Monitor Based SetPoint Enforcement"
+            href "energySaverPage", title: "Energy Saver"
             href "notificationPage", title: "Notification Settings"
             input name: "debug", title: "Debug Logging", type: "bool", defaultValue: false, required: true
             input name: "disable", title: "Disable Thermostat Manager", type: "bool", defaultValue: false, required: true
@@ -117,12 +123,25 @@ def notificationPage() {
     }
 }
 
+def energySaverPage() {
+    dynamicPage(name:"energySaverPage", title:"Energy Saver") {
+        section() {
+            paragraph "Energy Saver will temporarily pause the thermostat (by placing it in \"off\" mode) in the case that any selected contact sensors are left open for a specified number of minutes."
+            input name: "contact", title: "Contact Sensors", type: "capability.contactSensor", multiple: true, required: false
+            input name: "openContactMinutes", title: "Minutes", type: "number", required: false
+            input name: "disableEnergySaver", title: "Disable Energy Saver", type: "bool", defaultValue: false, required: true
+        }
+    }
+}
+
 def installed() {
     log.debug "Installed with settings: ${settings}"
     initialize()
 }
 
 def updated() {
+    state.clear()
+    
     log.debug "Updated with settings: ${settings}"
     unsubscribe()
     initialize()
@@ -130,9 +149,13 @@ def updated() {
 
 def initialize() {
      subscribe thermostat, "temperature", tempHandler
+     if (!disableEnergySaver) {
+        subscribe contact, "contact.open", contactOpenHandler
+        subscribe contact, "contact.closed", contactClosedHandler
+     }
 }
 
-def tempHandler(evt) {
+def tempHandler(event) {
     def currentTemp     = thermostat.currentValue("temperature")
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     def heatingSetpoint = thermostat.currentValue("heatingSetpoint")
@@ -140,8 +163,12 @@ def tempHandler(evt) {
     def fanMode         = thermostat.currentValue("thermostatFanMode")
     def homeMode        = location.mode
     def securityStatus  = location.currentValue("alarmSystemStatus")
-   
+    
     if (debug) {
+        if (!disableEnergySaver && contact) {
+            log.debug "Thermostat Manager - At least one contact is open: ${contact.currentValue("contact").contains("open")}"
+            log.debug "Thermostat Manager is currently paused: ${state.lastThermostatMode}"
+        }
         log.debug "Thermostat Manager - Smart Home Monitor Status: ${securityStatus}"
         log.debug "Thermostat Manager - Hello Home Mode: ${homeMode}"
         log.debug "Thermostat Manager - Fan Mode: ${fanMode}"
@@ -149,6 +176,7 @@ def tempHandler(evt) {
         log.debug "Thermostat Manager - Heating Setpoint: ${heatingSetpoint}"
         log.debug "Thermostat Manager - Cooling Setpoint: ${coolingSetpoint}"
         log.debug "Thermostat Manager - Temperature: ${currentTemp}"
+        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
     }
    
     if ( (!disable) && (setFan) && (fanMode != "auto") ) {
@@ -197,4 +225,64 @@ def logNNotify(message) {
     } else if (phone) {
         sendSms(phone, message)
     }
+}
+
+def contactOpenHandler(event) {
+    def thermostatMode = thermostat.currentValue("thermostatMode")
+    
+    if (debug) {
+        // TEST CODE
+        log.debug "Thermostat Manager - At least one contact is open: ${contact.currentValue("contact").contains("open")}"
+        // END TEST CODE
+        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
+        log.debug "Thermostat Manager - A contact has been opened."
+    }
+    
+    if ( (thermostatMode != "off") && (!state.openContact) ) {
+        // If the thermostat is not off and all of the contacts were closed previously.
+        state.openContact = true
+        runIn( (openContactMinutes * 60), openContactPause )
+        log.debug "Thermostat Manager - A contact has been opened. Initiating countdown to thermostat pause."
+    }
+}
+
+def contactClosedHandler(event) {
+    def thermostatMode = thermostat.currentValue("thermostatMode")
+    
+    if (debug) {
+        // TEST CODE
+        log.debug "Thermostat Manager - At least one contact is open: ${contact.currentValue("contact").contains("open")}"
+        // END TEST CODE
+        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
+        log.debug "Thermostat Manager - A contact has been closed."
+    }
+    
+    if (state.openContact) {
+        // If there was an open contact previously.
+        // The following needs to be tested to ensure that it reports, "true" if ANY contact is open.
+        if ( !contact.currentValue("contact").contains("open") ) {
+            // All of the contacts have been closed. Discontinue any existing countdown.
+            log.debug "Thermostat Manager - All contacts have been closed. Discontinuing any existing thermostat pause countdown."
+            unschedule(openContactPause)
+            
+            if (state.lastThermostatMode) {
+                // If the thermostat is currently paused, restore it to its previous state.
+                if (state.lastThermostatMode == "cool") {
+                    log.debug "Thermostat Manager setting cooling mode."
+                    thermostat.cool()
+                } else if (state.lastThermostatMode == "heat") {
+                    log.debug "Thermostat Manager setting heating mode."
+                    thermostat.heat()
+                }
+                state.lastThermostatMode = null
+            }
+            state.openContact = false
+        }
+    }
+}
+
+def openContactPause() {
+    state.lastThermostatMode = thermostat.currentValue("thermostatMode")
+    log.debug "Thermostat Manager is turning the thermostat off temporarily due to an open contact."
+    thermostat.off()
 }
