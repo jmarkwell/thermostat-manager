@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017151301
+ *  Build 2017151302
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -18,6 +18,7 @@
  *      20171215:
  *          01: Added capability to automatically set thermostat to "off" mode in the case that user selected contact
  *              sensors have remained open for longer than a user specified number of minutes.
+ *          02: 
  *
  *      20171213:
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
@@ -84,6 +85,7 @@ def mainPage() {
             input name: "setFan", title: "Maintain Auto Fan Mode", type: "bool", defaultValue: true, required: true
             href "setPointPage", title: "Smart Home Monitor Based SetPoint Enforcement"
             href "energySaverPage", title: "Energy Saver"
+            input name: "manualOverride", title: "Allow to Manually Turn Thermostat Off", description: "Thereby overriding Thermostat Manager when in \"off\" mode.", type: "bool", defaultValue: false, required: true
             href "notificationPage", title: "Notification Settings"
             input name: "debug", title: "Debug Logging", type: "bool", defaultValue: false, required: true
             input name: "disable", title: "Disable Thermostat Manager", type: "bool", defaultValue: false, required: true
@@ -185,7 +187,7 @@ def tempHandler(event) {
     }
     
     // Hello Home only sets the setPoint for the active thermostat mode.
-    if ( (!disable) && (thermostatMode != "cool") && coolingThreshold && ( Math.round(currentTemp) > Math.round(coolingThreshold) ) ) {
+    if ( (!disable) && ( ( !manualOverride && (thermostatMode != "cool") ) || ( manualOverride && (thermostatMode == "heat") ) ) && coolingThreshold && ( Math.round(currentTemp) > Math.round(coolingThreshold) ) ) {
         logNNotify("Thermostat Manager setting cooling mode.")
         thermostat.cool()
         
@@ -199,7 +201,7 @@ def tempHandler(event) {
             logNNotify("Thermostat Manager is setting the cooling setPoint to ${awayCoolingSetPoint}.")
             thermostat.setCoolingSetpoint(awayCoolingSetPoint)
         }
-    } else if ( (!disable) && (thermostatMode != "heat") && heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
+    } else if ( (!disable) && ( ( !manualOverride && (thermostatMode != "heat") ) || ( manualOverride && (thermostatMode == "cool") ) ) && heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
         logNNotify("Thermostat Manager setting heating mode.")
         thermostat.heat()
         
