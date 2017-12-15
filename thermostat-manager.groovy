@@ -18,7 +18,7 @@
  *      20171215:
  *          01: Added capability to automatically set thermostat to "off" mode in the case that user selected contact
  *              sensors have remained open for longer than a user specified number of minutes.
- *          02: 
+ *          02: Added ability to override Thermostat Manager by manually setting the thermostat to "off" mode.
  *
  *      20171213:
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
