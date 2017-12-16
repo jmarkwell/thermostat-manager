@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017121601
+ *  Build 2017121602
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -17,6 +17,7 @@
  *      
  *      20171216
  *          01: Apparently handler functions don't work without a parameter variable.
+ *          02: Turned setPoint enforcement into scheduled functions.
  *
  *      20171215
  *          01: Added capability to automatically set thermostat to "off" mode in the case that user selected contact
@@ -211,14 +212,12 @@ def tempHandler(event) {
         
         if (!disableSHMSPEnforce) {
             if ( (securityStatus == "off") && (offCoolingSetPoint) ) {
-                logNNotify("Thermostat Manager is setting the cooling setPoint to ${offCoolingSetPoint}.")
-                thermostat.setCoolingSetpoint(offCoolingSetPoint)
+                // SetPoints won't be changed unless the thermostat is already in the required mode.
+                runIn( 60, enforceCoolingSetPoint, [data: [setPoint: offCoolingSetPoint] ] )
             } else if ( (securityStatus == "stay") && (stayCoolingSetPoint) ) {
-                logNNotify("Thermostat Manager is setting the cooling setPoint to ${stayCoolingSetPoint}.")
-                thermostat.setCoolingSetpoint(stayCoolingSetPoint)
+                runIn( 60, enforceCoolingSetPoint, [data: [setPoint: stayCoolingSetPoint] ] )
             } else if ( (securityStatus == "away") && (awayCoolingSetPoint) ) {
-                logNNotify("Thermostat Manager is setting the cooling setPoint to ${awayCoolingSetPoint}.")
-                thermostat.setCoolingSetpoint(awayCoolingSetPoint)
+                runIn( 60, enforceCoolingSetPoint, [data: [setPoint: awayCoolingSetPoint] ] )
             }
         }
     } else if ( (!disable) && ( ( !manualOverride && (thermostatMode != "heat") ) || ( manualOverride && (thermostatMode == "cool") ) ) && heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
@@ -227,14 +226,11 @@ def tempHandler(event) {
         
         if (!disableSHMSPEnforce) {
             if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
-                logNNotify("Thermostat Manager is setting the heating setPoint to ${offHeatingSetPoint}.")
-                thermostat.setHeatingSetpoint(offHeatingSetPoint)
+                runIn( 60, enforceHeatingSetPoint, [data: [setPoint: offHeatingSetPoint] ] )
             } else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
-                logNNotify("Thermostat Manager is setting the heating setPoint to ${stayHeatingSetPoint}.")
-                thermostat.setHeatingSetpoint(stayHeatingSetPoint)
+                runIn( 60, enforceHeatingSetPoint, [data: [setPoint: stayHeatingSetPoint] ] )
             } else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
-                logNNotify("Thermostat Manager is setting the heating setPoint to ${awayHeatingSetPoint}.")
-                thermostat.setHeatingSetpoint(awayHeatingSetPoint)
+                runIn( 60, enforceHeatingSetPoint, [data: [setPoint: awayHeatingSetPoint] ] )
             }
         }
     } else if (debug) {
@@ -255,6 +251,16 @@ def logNNotify(message) {
             sendpush(message)
         }
     }
+}
+
+def enforceCoolingSetPoint(data) {
+    logNNotify("Thermostat Manager is setting the cooling setPoint to ${data.setPoint}.")
+    thermostat.setCoolingSetpoint(data.setPoint)
+}
+
+def enforceHeatingSetPoint(data) {
+    logNNotify("Thermostat Manager is setting the heating setPoint to ${data.setPoint}.")
+    thermostat.setHeatingSetpoint(data.setPoint)
 }
 
 def contactOpenHandler(event) {
