@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017151308
+ *  Build 2017151309
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -24,8 +24,9 @@
  *          05: Added ability to disable Smart Home Monitor based setPoint enforcement without having to remove user
  *              defined values.
  *          06: Added ability to disable notifications without having to remove contacts.
- *          07: Correcting typo.
+ *          07: Missed a comma.
  *          08: Modifying notification messages.
+ *          09: Converting tempHandler's event.value to integer.
  *
  *      20171213:
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
@@ -172,7 +173,7 @@ def initialize() {
 }
 
 def tempHandler(event) {
-    def currentTemp     = event.value
+    def currentTemp     = event.value.toInteger()
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     def heatingSetpoint = thermostat.currentValue("heatingSetpoint")
     def thermostatMode  = thermostat.currentValue("thermostatMode")
