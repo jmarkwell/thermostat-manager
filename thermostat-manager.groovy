@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017151309
+ *  Build 2017151310
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -27,6 +27,8 @@
  *          07: Missed a comma.
  *          08: Modifying notification messages.
  *          09: Converting tempHandler's event.value to integer.
+ *          10: Returned to using thermostat.currentValue("temperature") instead of event.value.toInteger() for the
+ *              currentTemp variable in the tempHandler() function.
  *
  *      20171213:
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
@@ -172,8 +174,8 @@ def initialize() {
      }
 }
 
-def tempHandler(event) {
-    def currentTemp     = event.value.toInteger()
+def tempHandler() {
+    def currentTemp     = thermostat.currentValue("temperature")
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     def heatingSetpoint = thermostat.currentValue("heatingSetpoint")
     def thermostatMode  = thermostat.currentValue("thermostatMode")
