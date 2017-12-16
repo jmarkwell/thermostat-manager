@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017151302
+ *  Build 2017151306
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -19,6 +19,11 @@
  *          01: Added capability to automatically set thermostat to "off" mode in the case that user selected contact
  *              sensors have remained open for longer than a user specified number of minutes.
  *          02: Added ability to override Thermostat Manager by manually setting the thermostat to "off" mode.
+ *          03: Added push notification capability.
+ *          04: Modified logging behavior. Rearranged menus. General code cleanup.
+ *          05: Added ability to disable Smart Home Monitor based setPoint enforcement without having to remove user
+ *              defined values.
+ *          06: Added ability to disable notifications without having to remove contacts.
  *
  *      20171213:
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
@@ -83,12 +88,14 @@ def mainPage() {
         }
         section("Optional Settings") {
             input name: "setFan", title: "Maintain Auto Fan Mode", type: "bool", defaultValue: true, required: true
-            href "setPointPage", title: "Smart Home Monitor Based SetPoint Enforcement"
-            href "energySaverPage", title: "Energy Saver"
-            input name: "manualOverride", title: "Allow to Manually Turn Thermostat Off", description: "Thereby overriding Thermostat Manager when in \"off\" mode.", type: "bool", defaultValue: false, required: true
-            href "notificationPage", title: "Notification Settings"
+            input name: "manualOverride", title: "Allow Manual Thermostat Off to Override Thermostat Manager", type: "bool", defaultValue: false, required: true
             input name: "debug", title: "Debug Logging", type: "bool", defaultValue: false, required: true
             input name: "disable", title: "Disable Thermostat Manager", type: "bool", defaultValue: false, required: true
+            
+            href "setPointPage", title: "Smart Home Monitor Based SetPoint Enforcement"
+            href "energySaverPage", title: "Energy Saver"
+            href "notificationPage", title: "Notification Settings"
+            
             label(title: "Assign a name", required: false)
             mode(title: "Set for specific mode(s)")
         }
@@ -112,6 +119,9 @@ def setPointPage() {
             input name: "awayCoolingSetPoint", title: "Cooling SetPoint", type: "number", required: false
             input name: "awayHeatingSetPoint", title: "Heating SetPoint", type: "number", required: false
         }
+        section() {
+            input name: "disableSHMSPEnforce", title: "Disable Smart Home Monitor Based SetPoint Enforcement", type: "bool", defaultValue: false, required: true
+        }
     }
 }
 
@@ -121,6 +131,8 @@ def notificationPage() {
             input(name: "recipients", title: "Select Notification Recipients", type: "contact", required: false) {
                 input name: "phone", title: "Enter Phone Number of Text Message Notification Recipient", type: "phone", required: false
             }
+            input name: "pushNotify", title: "Send Push Notifications", type: "bool" defaultValue: false, required: true
+            input name: "disableNotifications", title: "Disable Notifications", type: "bool", defaultValue: false, required: true
         }
     }
 }
@@ -182,7 +194,7 @@ def tempHandler(event) {
     }
    
     if ( (!disable) && (setFan) && (fanMode != "auto") ) {
-        log.debug "Thermostat Manager setting fan mode auto."
+        logNNotify("Thermostat Manager setting fan mode auto.")
         thermostat.fanAuto()
     }
     
@@ -191,29 +203,33 @@ def tempHandler(event) {
         logNNotify("Thermostat Manager setting cooling mode.")
         thermostat.cool()
         
-        if ( (securityStatus == "off") && (offCoolingSetPoint) ) {
-            logNNotify("Thermostat Manager is setting the cooling setPoint to ${offCoolingSetPoint}.")
-            thermostat.setCoolingSetpoint(offCoolingSetPoint)
-        } else if ( (securityStatus == "stay") && (stayCoolingSetPoint) ) {
-            logNNotify("Thermostat Manager is setting the cooling setPoint to ${stayCoolingSetPoint}.")
-            thermostat.setCoolingSetpoint(stayCoolingSetPoint)
-        } else if ( (securityStatus == "away") && (awayCoolingSetPoint) ) {
-            logNNotify("Thermostat Manager is setting the cooling setPoint to ${awayCoolingSetPoint}.")
-            thermostat.setCoolingSetpoint(awayCoolingSetPoint)
+        if (!disableSHMSPEnforce) {
+            if ( (securityStatus == "off") && (offCoolingSetPoint) ) {
+                logNNotify("Thermostat Manager is setting the cooling setPoint to ${offCoolingSetPoint}.")
+                thermostat.setCoolingSetpoint(offCoolingSetPoint)
+            } else if ( (securityStatus == "stay") && (stayCoolingSetPoint) ) {
+                logNNotify("Thermostat Manager is setting the cooling setPoint to ${stayCoolingSetPoint}.")
+                thermostat.setCoolingSetpoint(stayCoolingSetPoint)
+            } else if ( (securityStatus == "away") && (awayCoolingSetPoint) ) {
+                logNNotify("Thermostat Manager is setting the cooling setPoint to ${awayCoolingSetPoint}.")
+                thermostat.setCoolingSetpoint(awayCoolingSetPoint)
+            }
         }
     } else if ( (!disable) && ( ( !manualOverride && (thermostatMode != "heat") ) || ( manualOverride && (thermostatMode == "cool") ) ) && heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
         logNNotify("Thermostat Manager setting heating mode.")
         thermostat.heat()
         
-        if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
-            logNNotify("Thermostat Manager is setting the heating setPoint to ${offHeatingSetPoint}.")
-            thermostat.setHeatingSetpoint(offHeatingSetPoint)
-        } else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
-            logNNotify("Thermostat Manager is setting the heating setPoint to ${stayHeatingSetPoint}.")
-            thermostat.setHeatingSetpoint(stayHeatingSetPoint)
-        } else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
-            logNNotify("Thermostat Manager is setting the heating setPoint to ${awayHeatingSetPoint}.")
-            thermostat.setHeatingSetpoint(awayHeatingSetPoint)
+        if (!disableSHMSPEnforce) {
+            if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
+                logNNotify("Thermostat Manager is setting the heating setPoint to ${offHeatingSetPoint}.")
+                thermostat.setHeatingSetpoint(offHeatingSetPoint)
+            } else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
+                logNNotify("Thermostat Manager is setting the heating setPoint to ${stayHeatingSetPoint}.")
+                thermostat.setHeatingSetpoint(stayHeatingSetPoint)
+            } else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
+                logNNotify("Thermostat Manager is setting the heating setPoint to ${awayHeatingSetPoint}.")
+                thermostat.setHeatingSetpoint(awayHeatingSetPoint)
+            }
         }
     } else if (debug) {
         log.debug "Thermostat Manager standing by."
@@ -222,10 +238,16 @@ def tempHandler(event) {
 
 def logNNotify(message) {
     log.debug message
-    if (location.contactBookEnabled && recipients) {
-        sendNotificationToContacts(message, recipients)
-    } else if (phone) {
-        sendSms(phone, message)
+    if (!disableNotifications) {
+        if (location.contactBookEnabled && recipients) {
+            sendNotificationToContacts(message, recipients)
+        } else if (phone) {
+            sendSms(phone, message)
+        }
+        
+        if (pushNotify) {
+            sendpush(message)
+        }
     }
 }
 
@@ -233,11 +255,8 @@ def contactOpenHandler(event) {
     def thermostatMode = thermostat.currentValue("thermostatMode")
     
     if (debug) {
-        // TEST CODE
-        log.debug "Thermostat Manager - At least one contact is open: ${contact.currentValue("contact").contains("open")}"
-        // END TEST CODE
-        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
         log.debug "Thermostat Manager - A contact has been opened."
+        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
     }
     
     if ( (thermostatMode != "off") && (!state.openContact) ) {
@@ -249,19 +268,13 @@ def contactOpenHandler(event) {
 }
 
 def contactClosedHandler(event) {
-    def thermostatMode = thermostat.currentValue("thermostatMode")
-    
     if (debug) {
-        // TEST CODE
-        log.debug "Thermostat Manager - At least one contact is open: ${contact.currentValue("contact").contains("open")}"
-        // END TEST CODE
-        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
         log.debug "Thermostat Manager - A contact has been closed."
+        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
     }
     
     if (state.openContact) {
         // If there was an open contact previously.
-        // The following needs to be tested to ensure that it reports, "true" if ANY contact is open.
         if ( !contact.currentValue("contact").contains("open") ) {
             // All of the contacts have been closed. Discontinue any existing countdown.
             log.debug "Thermostat Manager - All contacts have been closed. Discontinuing any existing thermostat pause countdown."
@@ -270,10 +283,10 @@ def contactClosedHandler(event) {
             if (state.lastThermostatMode) {
                 // If the thermostat is currently paused, restore it to its previous state.
                 if (state.lastThermostatMode == "cool") {
-                    log.debug "Thermostat Manager setting cooling mode."
+                    logNNotify("Thermostat Manager setting cooling mode.")
                     thermostat.cool()
                 } else if (state.lastThermostatMode == "heat") {
-                    log.debug "Thermostat Manager setting heating mode."
+                    logNNotify("Thermostat Manager setting heating mode.")
                     thermostat.heat()
                 }
                 state.lastThermostatMode = null
@@ -285,6 +298,6 @@ def contactClosedHandler(event) {
 
 def openContactPause() {
     state.lastThermostatMode = thermostat.currentValue("thermostatMode")
-    log.debug "Thermostat Manager is turning the thermostat off temporarily due to an open contact."
+    logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
     thermostat.off()
 }
