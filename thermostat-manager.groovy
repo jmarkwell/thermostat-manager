@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017151306
+ *  Build 2017151307
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -24,6 +24,7 @@
  *          05: Added ability to disable Smart Home Monitor based setPoint enforcement without having to remove user
  *              defined values.
  *          06: Added ability to disable notifications without having to remove contacts.
+ *          07: Correcting typo.
  *
  *      20171213:
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
@@ -131,7 +132,7 @@ def notificationPage() {
             input(name: "recipients", title: "Select Notification Recipients", type: "contact", required: false) {
                 input name: "phone", title: "Enter Phone Number of Text Message Notification Recipient", type: "phone", required: false
             }
-            input name: "pushNotify", title: "Send Push Notifications", type: "bool" defaultValue: false, required: true
+            input name: "pushNotify", title: "Send Push Notifications", type: "bool", defaultValue: false, required: true
             input name: "disableNotifications", title: "Disable Notifications", type: "bool", defaultValue: false, required: true
         }
     }
