@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017151307
+ *  Build 2017151308
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -25,6 +25,7 @@
  *              defined values.
  *          06: Added ability to disable notifications without having to remove contacts.
  *          07: Correcting typo.
+ *          08: Modifying notification messages.
  *
  *      20171213:
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
@@ -171,7 +172,7 @@ def initialize() {
 }
 
 def tempHandler(event) {
-    def currentTemp     = thermostat.currentValue("temperature")
+    def currentTemp     = event.value
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     def heatingSetpoint = thermostat.currentValue("heatingSetpoint")
     def thermostatMode  = thermostat.currentValue("thermostatMode")
@@ -182,16 +183,14 @@ def tempHandler(event) {
     if (debug) {
         if (!disableEnergySaver && contact) {
             log.debug "Thermostat Manager - At least one contact is open: ${contact.currentValue("contact").contains("open")}"
-            log.debug "Thermostat Manager is currently paused: ${state.lastThermostatMode}"
+            if (state.lastThermostatMode) { log.debug "Thermostat Manager is currently paused." }
         }
         log.debug "Thermostat Manager - Smart Home Monitor Status: ${securityStatus}"
         log.debug "Thermostat Manager - Hello Home Mode: ${homeMode}"
         log.debug "Thermostat Manager - Fan Mode: ${fanMode}"
         log.debug "Thermostat Manager - Mode: ${thermostatMode}"
-        log.debug "Thermostat Manager - Heating Setpoint: ${heatingSetpoint}"
-        log.debug "Thermostat Manager - Cooling Setpoint: ${coolingSetpoint}"
+        log.debug "Thermostat Manager - Cooling Setpoint: ${coolingSetpoint} | Heating Setpoint: ${heatingSetpoint}"
         log.debug "Thermostat Manager - Temperature: ${currentTemp}"
-        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
     }
    
     if ( (!disable) && (setFan) && (fanMode != "auto") ) {
@@ -201,7 +200,7 @@ def tempHandler(event) {
     
     // Hello Home only sets the setPoint for the active thermostat mode.
     if ( (!disable) && ( ( !manualOverride && (thermostatMode != "cool") ) || ( manualOverride && (thermostatMode == "heat") ) ) && coolingThreshold && ( Math.round(currentTemp) > Math.round(coolingThreshold) ) ) {
-        logNNotify("Thermostat Manager setting cooling mode.")
+        logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting cooling mode.")
         thermostat.cool()
         
         if (!disableSHMSPEnforce) {
@@ -217,7 +216,7 @@ def tempHandler(event) {
             }
         }
     } else if ( (!disable) && ( ( !manualOverride && (thermostatMode != "heat") ) || ( manualOverride && (thermostatMode == "cool") ) ) && heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
-        logNNotify("Thermostat Manager setting heating mode.")
+        logNNotify("Thermostat Manager - The temperature has fallen to ${currentTemp}. Setting heating mode.")
         thermostat.heat()
         
         if (!disableSHMSPEnforce) {
@@ -252,12 +251,11 @@ def logNNotify(message) {
     }
 }
 
-def contactOpenHandler(event) {
+def contactOpenHandler() {
     def thermostatMode = thermostat.currentValue("thermostatMode")
     
     if (debug) {
         log.debug "Thermostat Manager - A contact has been opened."
-        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
     }
     
     if ( (thermostatMode != "off") && (!state.openContact) ) {
@@ -268,10 +266,9 @@ def contactOpenHandler(event) {
     }
 }
 
-def contactClosedHandler(event) {
+def contactClosedHandler() {
     if (debug) {
         log.debug "Thermostat Manager - A contact has been closed."
-        log.debug "Thermostat Manager - Event - Name: ${event.name} | Value: ${event.value}"
     }
     
     if (state.openContact) {
@@ -284,10 +281,10 @@ def contactClosedHandler(event) {
             if (state.lastThermostatMode) {
                 // If the thermostat is currently paused, restore it to its previous state.
                 if (state.lastThermostatMode == "cool") {
-                    logNNotify("Thermostat Manager setting cooling mode.")
+                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
                     thermostat.cool()
                 } else if (state.lastThermostatMode == "heat") {
-                    logNNotify("Thermostat Manager setting heating mode.")
+                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring heating mode.")
                     thermostat.heat()
                 }
                 state.lastThermostatMode = null
