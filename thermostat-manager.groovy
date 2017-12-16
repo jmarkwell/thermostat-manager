@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017151310
+ *  Build 2017121601
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -15,7 +15,10 @@
  *
  *  ChangeLog:
  *      
- *      20171215:
+ *      20171216
+ *          01: Apparently handler functions don't work without a parameter variable.
+ *
+ *      20171215
  *          01: Added capability to automatically set thermostat to "off" mode in the case that user selected contact
  *              sensors have remained open for longer than a user specified number of minutes.
  *          02: Added ability to override Thermostat Manager by manually setting the thermostat to "off" mode.
@@ -30,7 +33,7 @@
  *          10: Returned to using thermostat.currentValue("temperature") instead of event.value.toInteger() for the
  *              currentTemp variable in the tempHandler() function.
  *
- *      20171213:
+ *      20171213
  *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
  *              settings.
  *          02: Added notification capabilities.
@@ -39,17 +42,17 @@
  *          05: Edited the text of the text notification preference setting.
  *          06: Menu cleanup.
  *
- *      20171212:
+ *      20171212
  *          01: Added Hello Home mode value and Smart Home Monitor status value to debug logging.
  *          02: Added a preliminary form of setPoint enforcement.
  *
- *      20171210:
+ *      20171210
  *          01: Corrected a mistake in the help paragraph.
  *          02: Reconfigured the placement of the help text.
  *          03: Added the ability to have Simple Thermostat Manager ignore a temperature threshold by manually setting
  *              it to 0.
  *
- *      20171125:
+ *      20171125
  *          01: Reverted system back to using user defined boundaries.
  *          02: Changed fanMode state check to check for "auto" instead of "fanAuto".
  *
@@ -174,7 +177,7 @@ def initialize() {
      }
 }
 
-def tempHandler() {
+def tempHandler(event) {
     def currentTemp     = thermostat.currentValue("temperature")
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     def heatingSetpoint = thermostat.currentValue("heatingSetpoint")
@@ -254,7 +257,7 @@ def logNNotify(message) {
     }
 }
 
-def contactOpenHandler() {
+def contactOpenHandler(event) {
     def thermostatMode = thermostat.currentValue("thermostatMode")
     
     if (debug) {
@@ -269,7 +272,7 @@ def contactOpenHandler() {
     }
 }
 
-def contactClosedHandler() {
+def contactClosedHandler(event) {
     if (debug) {
         log.debug "Thermostat Manager - A contact has been closed."
     }
