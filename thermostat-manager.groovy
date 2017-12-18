@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017121602
+ *  Build 2017121801
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20171218
+ *          01: Don't set modes if Energy Saver has paused the thermostat due to open contacts.
+ *
  *      20171216
  *          01: Apparently handler functions don't work without a parameter variable.
  *          02: Turned setPoint enforcement into scheduled functions.
@@ -205,8 +208,8 @@ def tempHandler(event) {
         thermostat.fanAuto()
     }
     
-    // Hello Home only sets the setPoint for the active thermostat mode.
-    if ( (!disable) && ( ( !manualOverride && (thermostatMode != "cool") ) || ( manualOverride && (thermostatMode == "heat") ) ) && coolingThreshold && ( Math.round(currentTemp) > Math.round(coolingThreshold) ) ) {
+    // Temperature setPoints only stick for the active mode.
+    if ( !disable && (disableEnergySaver || !state.lastThermostatMode) && ( ( !manualOverride && (thermostatMode != "cool") ) || ( manualOverride && (thermostatMode == "heat") ) ) && coolingThreshold && ( Math.round(currentTemp) > Math.round(coolingThreshold) ) ) {
         logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting cooling mode.")
         thermostat.cool()
         
@@ -220,7 +223,7 @@ def tempHandler(event) {
                 runIn( 60, enforceCoolingSetPoint, [data: [setPoint: awayCoolingSetPoint] ] )
             }
         }
-    } else if ( (!disable) && ( ( !manualOverride && (thermostatMode != "heat") ) || ( manualOverride && (thermostatMode == "cool") ) ) && heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
+    } else if ( !disable && (disableEnergySaver || !state.lastThermostatMode) && ( ( !manualOverride && (thermostatMode != "heat") ) || ( manualOverride && (thermostatMode == "cool") ) ) && heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
         logNNotify("Thermostat Manager - The temperature has fallen to ${currentTemp}. Setting heating mode.")
         thermostat.heat()
         
