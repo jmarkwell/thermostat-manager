@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2017121801
+ *  Build 2018010201
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20180102
+ *          01: tempHandler() will now check to ensure that Energy Saver states do not contradict the status of the contacts being monitored.
+ *
  *      20171218
  *          01: Don't set modes if Energy Saver has paused the thermostat due to open contacts.
  *
@@ -182,6 +185,9 @@ def initialize() {
 }
 
 def tempHandler(event) {
+    if (!disableEnergySaver && contact) {
+        def openContact = ${contact.currentValue("contact").contains("open")}"
+    }
     def currentTemp     = thermostat.currentValue("temperature")
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     def heatingSetpoint = thermostat.currentValue("heatingSetpoint")
@@ -190,9 +196,14 @@ def tempHandler(event) {
     def homeMode        = location.mode
     def securityStatus  = location.currentValue("alarmSystemStatus")
     
+    if (!openContact && state.lastThermostatMode) {
+        // Invalid values could potentially occur if using multiple instances of Thermostat Manager.
+        state.clear()
+    }
+    
     if (debug) {
         if (!disableEnergySaver && contact) {
-            log.debug "Thermostat Manager - At least one contact is open: ${contact.currentValue("contact").contains("open")}"
+            log.debug "Thermostat Manager - At least one contact is open: ${openContact}"
             if (state.lastThermostatMode) { log.debug "Thermostat Manager is currently paused." }
         }
         log.debug "Thermostat Manager - Smart Home Monitor Status: ${securityStatus}"
@@ -273,9 +284,9 @@ def contactOpenHandler(event) {
         log.debug "Thermostat Manager - A contact has been opened."
     }
     
-    if ( (thermostatMode != "off") && (!state.openContact) ) {
+    if ( (thermostatMode != "off") && (!state.openContactReported) ) {
         // If the thermostat is not off and all of the contacts were closed previously.
-        state.openContact = true
+        state.openContactReported = true
         runIn( (openContactMinutes * 60), openContactPause )
         log.debug "Thermostat Manager - A contact has been opened. Initiating countdown to thermostat pause."
     }
@@ -286,7 +297,7 @@ def contactClosedHandler(event) {
         log.debug "Thermostat Manager - A contact has been closed."
     }
     
-    if (state.openContact) {
+    if (state.openContactReported) {
         // If there was an open contact previously.
         if ( !contact.currentValue("contact").contains("open") ) {
             // All of the contacts have been closed. Discontinue any existing countdown.
@@ -304,7 +315,7 @@ def contactClosedHandler(event) {
                 }
                 state.lastThermostatMode = null
             }
-            state.openContact = false
+            state.openContactReported = false
         }
     }
 }
