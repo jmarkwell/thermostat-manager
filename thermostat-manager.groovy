@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018010201
+ *  Build 2018010202
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -17,6 +17,7 @@
  *      
  *      20180102
  *          01: tempHandler() will now check to ensure that Energy Saver states do not contradict the status of the contacts being monitored.
+ *          02: Deleting a misplaced quotation mark.
  *
  *      20171218
  *          01: Don't set modes if Energy Saver has paused the thermostat due to open contacts.
@@ -186,7 +187,7 @@ def initialize() {
 
 def tempHandler(event) {
     if (!disableEnergySaver && contact) {
-        def openContact = ${contact.currentValue("contact").contains("open")}"
+        def openContact = contact.currentValue("contact").contains("open")
     }
     def currentTemp     = thermostat.currentValue("temperature")
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
