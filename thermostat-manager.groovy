@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018010202
+ *  Build 2018010901
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20180109
+ *          01: Verify that a monitored contact remains open before allowing Energy Saver to pause the thermostat.
+ *
  *      20180102
  *          01: tempHandler() will now check to ensure that Energy Saver states do not contradict the status of the contacts being monitored.
  *          02: Deleting a misplaced quotation mark.
@@ -301,7 +304,7 @@ def contactClosedHandler(event) {
     if (state.openContactReported) {
         // If there was an open contact previously.
         if ( !contact.currentValue("contact").contains("open") ) {
-            // All of the contacts have been closed. Discontinue any existing countdown.
+            // All monitored contacts have been closed. Discontinue any existing countdown.
             log.debug "Thermostat Manager - All contacts have been closed. Discontinuing any existing thermostat pause countdown."
             unschedule(openContactPause)
             
@@ -322,7 +325,11 @@ def contactClosedHandler(event) {
 }
 
 def openContactPause() {
-    state.lastThermostatMode = thermostat.currentValue("thermostatMode")
-    logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
-    thermostat.off()
+    if ( contact.currentValue("contact").contains("open") ) { // If any monitored contact is open.
+        state.lastThermostatMode = thermostat.currentValue("thermostatMode")
+        logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
+        thermostat.off()
+    } else { // If no monitored contacts are open.
+        state.clear()
+    }
 }
