@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018010901
+ *  Build 2018030601
  *
  *  Copyright 2017 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20180306
+ *          01: Added temperature threshold recommendations for Celsius.
+ *
  *      20180109
  *          01: Verify that a monitored contact remains open before allowing Energy Saver to pause the thermostat.
  *
@@ -96,9 +99,9 @@ def mainPage() {
         }
         section("Main Configuration") {
             input "thermostat", "capability.thermostat", title: "Thermostat", multiple: false, required: true
-            paragraph "When the temperature rises higher than the cooling threshold, Thermostat Manager will set cooling mode. Recommended value: 75"
+            paragraph "When the temperature rises higher than the cooling threshold, Thermostat Manager will set cooling mode. Recommended value: 75F (24C)"
             input name: "coolingThreshold", title: "Cooling Threshold", type: "number", required: false
-            paragraph "When the temperature falls below the heating threshold, Thermostat Manager will set heating mode. Recommended value: 70"
+            paragraph "When the temperature falls below the heating threshold, Thermostat Manager will set heating mode. Recommended value: 70F (21C)"
             input name: "heatingThreshold", title: "Heating Threshold", type: "number", required: false
         }
         section("Tips") {
