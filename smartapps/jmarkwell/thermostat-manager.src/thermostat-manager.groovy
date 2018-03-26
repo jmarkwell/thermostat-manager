@@ -354,7 +354,7 @@ def openContactPause() {
         state.lastThermostatMode = thermostat.currentValue("thermostatMode")
         logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
         thermostat.off()
-    } else { // If no monitored contacts are open.
+    } else { // If the thermostat is in, "off" mode or no monitored contacts are open.
         state.clear()
     }
 }
