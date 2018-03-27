@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018032701
+ *  Build 2018032704
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -17,6 +17,10 @@
  *      
  *      20180327
  *          01: Now accounting for all possible thermostat modes in tempHandler().
+ *          02: Disabling Thermostat Manager will now disable Energy Saver.
+ *          03: Logging and notifications will now continue to function even if a service is disabled (with the
+ *              exception of the notification service itself).
+ *          04: General code cleanup.
  *
  *      20180326
  *          01: Now accounting for all possible thermostat modes in contactClosedHandler().
@@ -89,6 +93,7 @@
  *          Creation
  *          Modified to use established thermostat setPoints rather than user defined boundaries.
  */
+ 
 definition(
     name: "Thermostat Manager",
     namespace: "jmarkwell",
@@ -200,11 +205,9 @@ def updated() {
 }
 
 def initialize() {
-     subscribe thermostat, "temperature", tempHandler
-     if (!disableEnergySaver) {
-        subscribe contact, "contact.open", contactOpenHandler
-        subscribe contact, "contact.closed", contactClosedHandler
-     }
+    subscribe(thermostat, "temperature", tempHandler)
+    subscribe(contact, "contact.open", contactOpenHandler)
+    subscribe(contact, "contact.closed", contactClosedHandler)
 }
 
 def tempHandler(event) {
@@ -319,7 +322,7 @@ def contactOpenHandler(event) {
         log.debug "Thermostat Manager - A contact has been opened."
     }
     
-    if ( (thermostatMode != "off") && (!state.openContactReported) ) {
+    if (!disable && !disableEnergySaver && (thermostatMode != "off") && !state.openContactReported) {
         // If the thermostat is not off and all of the contacts were closed previously.
         state.openContactReported = true
         runIn( (openContactMinutes * 60), openContactPause )
@@ -332,7 +335,7 @@ def contactClosedHandler(event) {
         log.debug "Thermostat Manager - A contact has been closed."
     }
     
-    if (state.openContactReported) {
+    if (!disable && !disableEnergySaver && state.openContactReported) {
         // If there was an open contact previously.
         if ( !contact.currentValue("contact").contains("open") ) {
             // All monitored contacts have been closed. Discontinue any existing countdown.
