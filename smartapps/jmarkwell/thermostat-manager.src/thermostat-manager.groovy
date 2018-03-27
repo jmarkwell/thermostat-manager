@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018032602
+ *  Build 2018032701
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,13 +15,16 @@
  *
  *  ChangeLog:
  *      
+ *      20180327
+ *          01: Now accounting for all possible thermostat modes in tempHandler().
+ *
  *      20180326
  *          01: Now accounting for all possible thermostat modes in contactClosedHandler().
  *          02: Adding (thermostatMode != "off") condition to openContactPause().
  *
  *      20180307
- *          01: If notifications are not configured or are disabled, quietly record qualifying events in the notification
- *              log.
+ *          01: If notifications are not configured or are disabled, quietly record qualifying events in the
+ *              notification log.
  *          02: Changed logNNotify() log level to, "info".
  *
  *      20180306
@@ -240,7 +243,12 @@ def tempHandler(event) {
     }
     
     // Temperature setPoints only stick for the active mode.
-    if ( !disable && (disableEnergySaver || !state.lastThermostatMode) && ( ( !manualOverride && (thermostatMode != "cool") ) || ( manualOverride && (thermostatMode == "heat") ) ) && coolingThreshold && ( Math.round(currentTemp) > Math.round(coolingThreshold) ) ) {
+    if (
+            !disable && (disableEnergySaver || !state.lastThermostatMode) &&
+            ( (thermostatMode != "cool") && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) ) &&
+            coolingThreshold && ( Math.round(currentTemp) > Math.round(coolingThreshold) )
+       ) {
+        
         logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting cooling mode.")
         thermostat.cool()
         
@@ -254,7 +262,12 @@ def tempHandler(event) {
                 runIn( 60, enforceCoolingSetPoint, [data: [setPoint: awayCoolingSetPoint] ] )
             }
         }
-    } else if ( !disable && (disableEnergySaver || !state.lastThermostatMode) && ( ( !manualOverride && (thermostatMode != "heat") ) || ( manualOverride && (thermostatMode == "cool") ) ) && heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) ) ) {
+    } else if (
+            !disable && (disableEnergySaver || !state.lastThermostatMode) &&
+            ( (thermostatMode != "heat") && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) ) &&
+            heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) )
+        ) {
+        
         logNNotify("Thermostat Manager - The temperature has fallen to ${currentTemp}. Setting heating mode.")
         thermostat.heat()
         
