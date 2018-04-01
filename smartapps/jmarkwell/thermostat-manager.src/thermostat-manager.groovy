@@ -215,7 +215,7 @@ def initialize() {
 }
 
 def tempHandler(event) {
-    def openContact     = contact.currentValue("contact")?.contains("open")
+    def openContact     = contact?.currentValue("contact")?.contains("open")
     def currentTemp     = thermostat.currentValue("temperature")
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     def heatingSetpoint = thermostat.currentValue("heatingSetpoint")
