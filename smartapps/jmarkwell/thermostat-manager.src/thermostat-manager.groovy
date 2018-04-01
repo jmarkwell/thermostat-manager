@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018032704
+ *  Build 2018040101
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20180401
+ *          01: Correcting a typo in logNNotify() that D_Gjorgjievski from the support forum discovered.
+ *
  *      20180327
  *          01: Now accounting for all possible thermostat modes in tempHandler().
  *          02: Disabling Thermostat Manager will now disable Energy Saver.
@@ -298,7 +301,7 @@ def logNNotify(message) {
         }
         
         if (pushNotify) {
-            sendpush(message)
+            sendPush(message)
         }
     } else {
         sendNotificationEvent(message)
