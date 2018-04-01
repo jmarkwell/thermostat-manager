@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018040101
+ *  Build 2018040102
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -17,6 +17,7 @@
  *      
  *      20180401
  *          01: Correcting a typo in logNNotify() that D_Gjorgjievski from the support forum discovered.
+ *          02: Corrected a problem with the openContact variable inside of the tempHandler() function.
  *
  *      20180327
  *          01: Now accounting for all possible thermostat modes in tempHandler().
@@ -214,9 +215,7 @@ def initialize() {
 }
 
 def tempHandler(event) {
-    if (!disableEnergySaver && contact) {
-        def openContact = contact.currentValue("contact").contains("open")
-    }
+    def openContact     = contact.currentValue("contact").contains("open")
     def currentTemp     = thermostat.currentValue("temperature")
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     def heatingSetpoint = thermostat.currentValue("heatingSetpoint")
