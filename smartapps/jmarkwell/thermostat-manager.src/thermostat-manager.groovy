@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018040102
+ *  Build 2018041201
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20180412
+ *          01: A bit of code cleanup.
+ *
  *      20180401
  *          01: Correcting a typo in logNNotify() that D_Gjorgjievski from the support forum discovered.
  *          02: Corrected a problem with the openContact variable inside of the tempHandler() function.
@@ -102,7 +105,7 @@ definition(
     name: "Thermostat Manager",
     namespace: "jmarkwell",
     author: "Jordan Markwell",
-    description: "Automatically changes the thermostat mode in response to changes in temperature that exceed user defined thresholds.",
+    description: "Automatically changes thermostat mode in response to changes in temperature that exceed user defined thresholds.",
     category: "Convenience",
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/Meta/temp_thermo.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Meta/temp_thermo@2x.png",
@@ -261,13 +264,16 @@ def tempHandler(event) {
             if ( (securityStatus == "off") && (offCoolingSetPoint) ) {
                 // SetPoints won't be changed unless the thermostat is already in the required mode.
                 runIn( 60, enforceCoolingSetPoint, [data: [setPoint: offCoolingSetPoint] ] )
-            } else if ( (securityStatus == "stay") && (stayCoolingSetPoint) ) {
+            }
+            else if ( (securityStatus == "stay") && (stayCoolingSetPoint) ) {
                 runIn( 60, enforceCoolingSetPoint, [data: [setPoint: stayCoolingSetPoint] ] )
-            } else if ( (securityStatus == "away") && (awayCoolingSetPoint) ) {
+            }
+            else if ( (securityStatus == "away") && (awayCoolingSetPoint) ) {
                 runIn( 60, enforceCoolingSetPoint, [data: [setPoint: awayCoolingSetPoint] ] )
             }
         }
-    } else if (
+    }
+    else if (
             !disable && (disableEnergySaver || !state.lastThermostatMode) &&
             ( (thermostatMode != "heat") && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) ) &&
             heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) )
@@ -279,13 +285,16 @@ def tempHandler(event) {
         if (!disableSHMSPEnforce) {
             if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
                 runIn( 60, enforceHeatingSetPoint, [data: [setPoint: offHeatingSetPoint] ] )
-            } else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
+            }
+            else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
                 runIn( 60, enforceHeatingSetPoint, [data: [setPoint: stayHeatingSetPoint] ] )
-            } else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
+            }
+            else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
                 runIn( 60, enforceHeatingSetPoint, [data: [setPoint: awayHeatingSetPoint] ] )
             }
         }
-    } else if (debug) {
+    }
+    else if (debug) {
         log.debug "Thermostat Manager standing by."
     }
 }
@@ -295,14 +304,16 @@ def logNNotify(message) {
     if ( (!disableNotifications) && ( (location.contactBookEnabled && recipients) || phone || pushNotify ) ) {
         if (location.contactBookEnabled && recipients) {
             sendNotificationToContacts(message, recipients)
-        } else if (phone) {
+        }
+        else if (phone) {
             sendSms(phone, message)
         }
         
         if (pushNotify) {
             sendPush(message)
         }
-    } else {
+    }
+    else {
         sendNotificationEvent(message)
     }
 }
@@ -320,47 +331,45 @@ def enforceHeatingSetPoint(data) {
 def contactOpenHandler(event) {
     def thermostatMode = thermostat.currentValue("thermostatMode")
     
-    if (debug) {
-        log.debug "Thermostat Manager - A contact has been opened."
-    }
-    
     if (!disable && !disableEnergySaver && (thermostatMode != "off") && !state.openContactReported) {
         // If the thermostat is not off and all of the contacts were closed previously.
         state.openContactReported = true
         runIn( (openContactMinutes * 60), openContactPause )
         log.debug "Thermostat Manager - A contact has been opened. Initiating countdown to thermostat pause."
     }
+    else if (debug) {
+        log.debug "Thermostat Manager - A contact has been opened."
+    }
 }
 
 def contactClosedHandler(event) {
-    if (debug) {
-        log.debug "Thermostat Manager - A contact has been closed."
-    }
-    
-    if (!disable && !disableEnergySaver && state.openContactReported) {
-        // If there was an open contact previously.
-        if ( !contact.currentValue("contact").contains("open") ) {
-            // All monitored contacts have been closed. Discontinue any existing countdown.
-            log.debug "Thermostat Manager - All contacts have been closed. Discontinuing any existing thermostat pause countdown."
-            unschedule(openContactPause)
-            
-            if (state.lastThermostatMode) {
-                // If the thermostat is currently paused, restore it to its previous state.
-                if (state.lastThermostatMode == "cool") {
-                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
-                    thermostat.cool()
-                } else if (state.lastThermostatMode == "auto") {
-                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring auto mode.")
-                    thermostat.auto()
-                } else { // state.openContactReported will not be set unless (state.lastThermostatMode != "off").
-                    // It appears that most thermostat device handlers disallow, "emergency heat" mode.
-                    logNNotify("Thermostat Manager - All contacts have been closed. Setting heating mode.")
-                    thermostat.heat()
-                }
-                state.lastThermostatMode = null
+    // If an open contact has been reported but all monitored contacts are currently closed.
+    if ( !disable && !disableEnergySaver && state.openContactReported && !contact.currentValue("contact").contains("open") ) {
+        // Discontinue any existing countdown.
+        log.debug "Thermostat Manager - All contacts have been closed. Discontinuing any existing thermostat pause countdown."
+        unschedule(openContactPause)
+        
+        if (state.lastThermostatMode) {
+            // If the thermostat is currently paused, restore it to its previous state.
+            if (state.lastThermostatMode == "auto") {
+                logNNotify("Thermostat Manager - All contacts have been closed. Restoring auto mode.")
+                thermostat.auto()
             }
-            state.openContactReported = false
+            else if (state.lastThermostatMode == "cool") {
+                logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
+                thermostat.cool()
+            }
+            else { // state.openContactReported will not be set unless (state.lastThermostatMode != "off").
+                // It appears that most thermostat device handlers disallow, "emergency heat" mode.
+                logNNotify("Thermostat Manager - All contacts have been closed. Setting heating mode.")
+                thermostat.heat()
+            }
+            state.lastThermostatMode = null
         }
+        state.openContactReported = false
+    }
+    else if (debug) {
+        log.debug "Thermostat Manager - A contact has been closed."
     }
 }
 
@@ -372,7 +381,8 @@ def openContactPause() {
         state.lastThermostatMode = thermostat.currentValue("thermostatMode")
         logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
         thermostat.off()
-    } else { // If the thermostat was turned off after an open contact was reported or no monitored contacts remain open.
+    }
+    else { // If the thermostat was turned off after an open contact was reported or no monitored contacts remain open.
         state.clear()
     }
 }
