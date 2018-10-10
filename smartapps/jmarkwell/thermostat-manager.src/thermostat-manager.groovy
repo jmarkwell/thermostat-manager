@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018101002
+ *  Build 2018101003
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -18,6 +18,7 @@
  *      20181010
  *          01: Added, "emergency heat" mode to contactClosedHandler().
  *          02: Added option to use, "emergency heat" mode in place of heat mode.
+ *          03: Set, "pausable" to true.
  *
  *      20180412
  *          01: A bit of code cleanup.
@@ -114,7 +115,7 @@ definition(
     iconUrl: "https://s3.amazonaws.com/smartapp-icons/Meta/temp_thermo.png",
     iconX2Url: "https://s3.amazonaws.com/smartapp-icons/Meta/temp_thermo@2x.png",
     iconX3Url: "https://s3.amazonaws.com/smartapp-icons/Meta/temp_thermo@2x.png",
-    pausable: false
+    pausable: true
 )
 
 preferences {
