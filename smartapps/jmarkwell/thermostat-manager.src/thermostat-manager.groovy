@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018041201
+ *  Build 2018101002
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,6 +15,10 @@
  *
  *  ChangeLog:
  *      
+ *      20181010
+ *          01: Added, "emergency heat" mode to contactClosedHandler().
+ *          02: Added option to use, "emergency heat" mode in place of heat mode.
+ *
  *      20180412
  *          01: A bit of code cleanup.
  *
@@ -139,6 +143,7 @@ def mainPage() {
         section("Optional Settings") {
             input name: "setFan", title: "Maintain Auto Fan Mode", type: "bool", defaultValue: true, required: true
             input name: "manualOverride", title: "Allow Manual Thermostat Off to Override Thermostat Manager", type: "bool", defaultValue: false, required: true
+            input name: "useEmergencyHeat", title: "Always Use Emergency Heat Mode Instead of Heat Mode", type: "bool", defaultValue: false, required: true
             input name: "debug", title: "Debug Logging", type: "bool", defaultValue: false, required: true
             input name: "disable", title: "Disable Thermostat Manager", type: "bool", defaultValue: false, required: true
             
@@ -279,8 +284,13 @@ def tempHandler(event) {
             heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) )
         ) {
         
-        logNNotify("Thermostat Manager - The temperature has fallen to ${currentTemp}. Setting heating mode.")
-        thermostat.heat()
+        if (!useEmergencyHeat) {
+            logNNotify("Thermostat Manager - The temperature has fallen to ${currentTemp}. Setting heating mode.")
+            thermostat.heat()
+        } else {
+            logNNotify("Thermostat Manager - The temperature has fallen to ${currentTemp}. Setting emergency heat mode.")
+            thermostat.emergencyHeat()
+        }
         
         if (!disableSHMSPEnforce) {
             if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
@@ -355,12 +365,15 @@ def contactClosedHandler(event) {
                 logNNotify("Thermostat Manager - All contacts have been closed. Restoring auto mode.")
                 thermostat.auto()
             }
+            else if (state.lastThermostatMode == "emergency heat") {
+                logNNotify("Thermostat Manager - All contacts have been closed. Restoring emergency heat mode.")
+                thermostat.emergencyHeat()
+            }
             else if (state.lastThermostatMode == "cool") {
                 logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
                 thermostat.cool()
             }
             else { // state.openContactReported will not be set unless (state.lastThermostatMode != "off").
-                // It appears that most thermostat device handlers disallow, "emergency heat" mode.
                 logNNotify("Thermostat Manager - All contacts have been closed. Setting heating mode.")
                 thermostat.heat()
             }
