@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018101003
+ *  Build 2018101004
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -19,6 +19,7 @@
  *          01: Added, "emergency heat" mode to contactClosedHandler().
  *          02: Added option to use, "emergency heat" mode in place of heat mode.
  *          03: Set, "pausable" to true.
+ *          04: Added, "emergency heat" to heating modes condition check.
  *
  *      20180412
  *          01: A bit of code cleanup.
@@ -281,7 +282,7 @@ def tempHandler(event) {
     }
     else if (
             !disable && (disableEnergySaver || !state.lastThermostatMode) &&
-            ( (thermostatMode != "heat") && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) ) &&
+            ( ( (thermostatMode != "heat") && (thermostatMode != "emergency heat") ) && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) ) &&
             heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) )
         ) {
         
