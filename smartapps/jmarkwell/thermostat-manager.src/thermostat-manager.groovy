@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018101202
+ *  Build 2018101204
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -19,6 +19,8 @@
  *          01: Added a toggle to disable externally controlled emergency heat.
  *          02: Added capability for externally controlled emergency heat system to re-engage, "heat" mode if the
  *              temperature rises above the emergencyHeatThreshold.
+ *          03: Renamed extTempHandler() to outdoorTempHandler().
+ *          04: Edited the wording of emergency heat menu items.
  *
  *      20181011
  *          01: Created a new menu page for emergency heat settings and moved the useEmergencyHeat toggle into it.
@@ -226,7 +228,7 @@ def emergencyHeatPage() {
         section() {
             paragraph "If you would like to have Thermostat Manager enable emergency heat mode based on the temperature outside, select a temperature sensor below."
             input name: "outdoorTempSensor", title: "Outdoor Temperature Sensor", type: "capability.temperatureMeasurement", multiple: false, required: false
-            paragraph "When an outdoor temperature sensor reports a temperature lower than the emergency heat threshold, activate emergency heat mode. Set the emergency heat threshold at some value lower than the heating threshold."
+            paragraph "When an outdoor temperature sensor reports a temperature lower than the emergency heat threshold, Thermostat Manager will set emergency heat mode. Set the emergency heat threshold at some value lower than the heating threshold."
             input name: "emergencyHeatThreshold", title: "Emergency Heat Threshold", type: "number", required: false
             input name: "disableExtEmergencyHeat", title: "Disable Externally Controlled Emergency Heat", type: "bool", defaultValue: false, required: true
         }
@@ -253,7 +255,7 @@ def initialize() {
     subscribe(thermostat, "temperature", tempHandler)
     subscribe(contact, "contact.open", contactOpenHandler)
     subscribe(contact, "contact.closed", contactClosedHandler)
-    subscribe(outdoorTempSensor, "temperature", extTempHandler)
+    subscribe(outdoorTempSensor, "temperature", outdoorTempHandler)
 }
 
 def tempHandler(event) {
@@ -345,7 +347,7 @@ def tempHandler(event) {
     }
 }
 
-def extTempHandler(event) {
+def outdoorTempHandler(event) {
     def openContact         = contact?.currentValue("contact")?.contains("open")
     def currentTemp         = thermostat.currentValue("temperature")
     def currentOutdoorTemp  = outdoorTempSensor.currentValue("temperature")
