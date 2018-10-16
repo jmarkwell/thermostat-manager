@@ -540,8 +540,8 @@ def esConflictResolver() { // Remember that state values are not changed until t
                     logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
                     thermostat.heat()
                 }
-                state.lastThermostatMode = null
             }
+            state.lastThermostatMode = null
         }
     }
 }
