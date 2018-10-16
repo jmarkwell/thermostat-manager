@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018101603
+ *  Build 2018101604
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -20,6 +20,7 @@
  *              switch off the thermostat if manualOverride is enabled.
  *          02: Changed debug log output.
  *          03: Updated code comments.
+ *          04: Modified conditions for mode change commands called by esConflictResolver().
  *
  *      20181012
  *          01: Added a toggle to disable externally controlled emergency heat.
@@ -522,23 +523,25 @@ def esConflictResolver() { // Remember that state values are not changed until t
         
         // If the thermostat is currently paused, restore it to its previous state.
         if (state.lastThermostatMode) {
-            if (state.lastThermostatMode == "auto") {
-                logNNotify("Thermostat Manager - All contacts have been closed. Restoring auto mode.")
-                thermostat.auto()
+            if (thermostat.currentValue("thermostatMode") == "off") {
+                if (state.lastThermostatMode == "auto") {
+                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring auto mode.")
+                    thermostat.auto()
+                }
+                else if (state.lastThermostatMode == "emergency heat") {
+                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring emergency heat mode.")
+                    thermostat.emergencyHeat()
+                }
+                else if (state.lastThermostatMode == "cool") {
+                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
+                    thermostat.cool()
+                }
+                else {
+                    logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
+                    thermostat.heat()
+                }
+                state.lastThermostatMode = null
             }
-            else if (state.lastThermostatMode == "emergency heat") {
-                logNNotify("Thermostat Manager - All contacts have been closed. Restoring emergency heat mode.")
-                thermostat.emergencyHeat()
-            }
-            else if (state.lastThermostatMode == "cool") {
-                logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
-                thermostat.cool()
-            }
-            else { // contactOpenHandler() will not set state.openContactReported and initiate the thermostat pause countdown unless (state.lastThermostatMode != "off").
-                logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
-                thermostat.heat()
-            }
-            state.lastThermostatMode = null
         }
     }
 }
