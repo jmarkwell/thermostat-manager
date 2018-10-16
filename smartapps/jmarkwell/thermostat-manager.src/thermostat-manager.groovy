@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018101204
+ *  Build 2018101603
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,6 +15,12 @@
  *
  *  ChangeLog:
  *      
+ *      20181016
+ *          01: Created esConflictResolver(), to resolve a race condition that can cause Energy Saver to permanently
+ *              switch off the thermostat if manualOverride is enabled.
+ *          02: Changed debug log output.
+ *          03: Updated code comments.
+ *
  *      20181012
  *          01: Added a toggle to disable externally controlled emergency heat.
  *          02: Added capability for externally controlled emergency heat system to re-engage, "heat" mode if the
@@ -239,14 +245,14 @@ def emergencyHeatPage() {
 }
 
 def installed() {
-    log.debug "Installed with settings: ${settings}"
+    log.debug "Thermostat_Manager.installed(): ${settings}"
     initialize()
 }
 
 def updated() {
     state.clear()
     
-    log.debug "Updated with settings: ${settings}"
+    log.debug "Thermostat_Manager.updated(): ${settings}"
     unsubscribe()
     initialize()
 }
@@ -268,24 +274,21 @@ def tempHandler(event) {
     def homeMode        = location.mode
     def securityStatus  = location.currentValue("alarmSystemStatus")
     
-    if (!openContact && state.lastThermostatMode) {
-        // Invalid values could potentially occur if using multiple instances of Thermostat Manager.
-        state.clear()
-    }
+    esConflictResolver()
     
     if (debug) {
-        if (event?.device?.hasCapability("Thermostat")) { log.debug "Thermostat Manager - (${event.device.typeName}) IS A THERMOSTAT" }
-        else { log.debug "Thermostat Manager - (${event.device.typeName}) IS NOT A THERMOSTAT" }
+        if (event?.device?.hasCapability("Thermostat")) { log.debug "Thermostat_Manager.tempHandler(): (${event.device.typeName}) IS A THERMOSTAT" }
+        else { log.debug "Thermostat_Manager.tempHandler(): (${event.device.typeName}) IS NOT A THERMOSTAT" }
         if (!disableEnergySaver && contact) {
-            log.debug "Thermostat Manager - At least one contact is open: ${openContact}"
-            if (state.lastThermostatMode) { log.debug "Thermostat Manager is currently paused." }
+            log.debug "Thermostat_Manager.tempHandler(): At least one contact is open: ${openContact}"
+            if (state.lastThermostatMode) { log.debug "Thermostat_Manager.tempHandler(): Thermostat Manager is currently paused." }
         }
-        log.debug "Thermostat Manager - Smart Home Monitor Status: ${securityStatus}"
-        log.debug "Thermostat Manager - Hello Home Mode: ${homeMode}"
-        log.debug "Thermostat Manager - Fan Mode: ${fanMode}"
-        log.debug "Thermostat Manager - Mode: ${thermostatMode}"
-        log.debug "Thermostat Manager - Cooling Setpoint: ${coolingSetpoint} | Heating Setpoint: ${heatingSetpoint}"
-        log.debug "Thermostat Manager - Indoor Temperature: ${currentTemp}"
+        log.debug "Thermostat_Manager.tempHandler(): Smart Home Monitor Status: ${securityStatus}"
+        log.debug "Thermostat_Manager.tempHandler(): Hello Home Mode: ${homeMode}"
+        log.debug "Thermostat_Manager.tempHandler(): Fan Mode: ${fanMode}"
+        log.debug "Thermostat_Manager.tempHandler(): Mode: ${thermostatMode}"
+        log.debug "Thermostat_Manager.tempHandler(): Cooling Setpoint: ${coolingSetpoint} | Heating Setpoint: ${heatingSetpoint}"
+        log.debug "Thermostat_Manager.tempHandler(): Indoor Temperature: ${currentTemp}"
     }
    
     if ( (!disable) && (setFan) && (fanMode != "auto") ) {
@@ -293,8 +296,7 @@ def tempHandler(event) {
         thermostat.fanAuto()
     }
     
-    // Temperature setPoints only stick for the active mode.
-    if (
+    if ( // Temperature setPoints only stick for the active mode.
             !disable && (disableEnergySaver || !state.lastThermostatMode) &&
             (thermostatMode != "cool") && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) &&
             coolingThreshold && ( Math.round(currentTemp) > Math.round(coolingThreshold) )
@@ -316,7 +318,7 @@ def tempHandler(event) {
             }
         }
     }
-    else if (
+    else if ( // Temperature setPoints only stick for the active mode.
             !disable && (disableEnergySaver || !state.lastThermostatMode) &&
             (thermostatMode != "heat") && (thermostatMode != "emergency heat") && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) &&
             heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) )
@@ -332,6 +334,7 @@ def tempHandler(event) {
         
         if (!disableSHMSetPointEnforce) {
             if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
+                // SetPoints won't be changed unless the thermostat is already in the required mode.
                 runIn( 60, enforceHeatingSetPoint, [data: [setPoint: offHeatingSetPoint] ] )
             }
             else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
@@ -343,7 +346,7 @@ def tempHandler(event) {
         }
     }
     else if (debug) {
-        log.debug "Thermostat Manager standing by."
+        log.debug "Thermostat_Manager.tempHandler(): Thermostat Manager standing by."
     }
 }
 
@@ -358,24 +361,22 @@ def outdoorTempHandler(event) {
     def homeMode            = location.mode
     def securityStatus      = location.currentValue("alarmSystemStatus")
     
-    if (!openContact && state.lastThermostatMode) {
-        state.clear()
-    }
+    esConflictResolver()
     
     if (debug) {
-        if (event?.device?.hasCapability("Thermostat")) { log.debug "Thermostat Manager - (${event.device.typeName}) IS A THERMOSTAT" }
-        else { log.debug "Thermostat Manager - (${event.device.typeName}) IS NOT A THERMOSTAT" }
+        if (event?.device?.hasCapability("Thermostat")) { log.debug "Thermostat_Manager.outdoorTempHandler(): (${event.device.typeName}) IS A THERMOSTAT" }
+        else { log.debug "Thermostat_Manager.outdoorTempHandler(): (${event.device.typeName}) IS NOT A THERMOSTAT" }
         if (!disableEnergySaver && contact) {
-            log.debug "Thermostat Manager - At least one contact is open: ${openContact}"
-            if (state.lastThermostatMode) { log.debug "Thermostat Manager is currently paused." }
+            log.debug "Thermostat_Manager.outdoorTempHandler(): At least one contact is open: ${openContact}"
+            if (state.lastThermostatMode) { log.debug "Thermostat_Manager.outdoorTempHandler(): Thermostat Manager is currently paused." }
         }
-        log.debug "Thermostat Manager - Smart Home Monitor Status: ${securityStatus}"
-        log.debug "Thermostat Manager - Hello Home Mode: ${homeMode}"
-        log.debug "Thermostat Manager - Fan Mode: ${fanMode}"
-        log.debug "Thermostat Manager - Mode: ${thermostatMode}"
-        log.debug "Thermostat Manager - Cooling Setpoint: ${coolingSetpoint} | Heating Setpoint: ${heatingSetpoint}"
-        log.debug "Thermostat Manager - Outdoor Temperature: ${currentOutdoorTemp}"
-        log.debug "Thermostat Manager - Indoor Temperature: ${currentTemp}"
+        log.debug "Thermostat_Manager.outdoorTempHandler(): Smart Home Monitor Status: ${securityStatus}"
+        log.debug "Thermostat_Manager.outdoorTempHandler(): Hello Home Mode: ${homeMode}"
+        log.debug "Thermostat_Manager.outdoorTempHandler(): Fan Mode: ${fanMode}"
+        log.debug "Thermostat_Manager.outdoorTempHandler(): Mode: ${thermostatMode}"
+        log.debug "Thermostat_Manager.outdoorTempHandler(): Cooling Setpoint: ${coolingSetpoint} | Heating Setpoint: ${heatingSetpoint}"
+        log.debug "Thermostat_Manager.outdoorTempHandler(): Outdoor Temperature: ${currentOutdoorTemp}"
+        log.debug "Thermostat_Manager.outdoorTempHandler(): Indoor Temperature: ${currentTemp}"
     }
     
     if ( (!disable) && (setFan) && (fanMode != "auto") ) {
@@ -383,7 +384,7 @@ def outdoorTempHandler(event) {
         thermostat.fanAuto()
     }
     
-    if (
+    if ( // Temperature setPoints only stick for the active mode.
             !disable && !disableExtEmergencyHeat && (disableEnergySaver || !state.lastThermostatMode) &&
             (thermostatMode != "emergency heat") && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) &&
             emergencyHeatThreshold && ( Math.round(currentOutdoorTemp) < Math.round(emergencyHeatThreshold) )
@@ -394,6 +395,7 @@ def outdoorTempHandler(event) {
         
         if (!disableSHMSetPointEnforce) {
             if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
+                // SetPoints won't be changed unless the thermostat is already in the required mode.
                 runIn( 60, enforceHeatingSetPoint, [data: [setPoint: offHeatingSetPoint] ] )
             }
             else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
@@ -404,7 +406,7 @@ def outdoorTempHandler(event) {
             }
         }
     }
-    else if (
+    else if ( // Temperature setPoints only stick for the active mode.
             !disable && !disableExtEmergencyHeat && !useEmergencyHeat && (thermostatMode == "emergency heat") &&
             emergencyHeatThreshold && ( Math.round(currentOutdoorTemp) > Math.round(emergencyHeatThreshold) ) &&
             heatingThreshold && ( Math.round(currentTemp) < Math.round(heatingThreshold) )
@@ -415,6 +417,7 @@ def outdoorTempHandler(event) {
         
         if (!disableSHMSetPointEnforce) {
             if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
+                // SetPoints won't be changed unless the thermostat is already in the required mode.
                 runIn( 60, enforceHeatingSetPoint, [data: [setPoint: offHeatingSetPoint] ] )
             }
             else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
@@ -426,7 +429,7 @@ def outdoorTempHandler(event) {
         }
     }
     else if (debug) {
-        log.debug "Thermostat Manager standing by."
+        log.debug "Thermostat_Manager.outdoorTempHandler(): Thermostat Manager standing by."
     }
 }
 
@@ -462,14 +465,14 @@ def enforceHeatingSetPoint(data) {
 def contactOpenHandler(event) {
     def thermostatMode = thermostat.currentValue("thermostatMode")
     
+    // If the thermostat is not off and all of the contacts were closed previously.
     if (!disable && !disableEnergySaver && (thermostatMode != "off") && !state.openContactReported) {
-        // If the thermostat is not off and all of the contacts were closed previously.
         state.openContactReported = true
         runIn( (openContactMinutes * 60), openContactPause )
-        log.debug "Thermostat Manager - A contact has been opened. Initiating countdown to thermostat pause."
+        log.debug "Thermostat_Manager.contactOpenHandler(): A contact has been opened. Initiating countdown to thermostat pause."
     }
     else if (debug) {
-        log.debug "Thermostat Manager - A contact has been opened."
+        log.debug "Thermostat_Manager.contactOpenHandler(): A contact has been opened."
     }
 }
 
@@ -477,7 +480,7 @@ def contactClosedHandler(event) {
     // If an open contact has been reported but all monitored contacts are currently closed.
     if ( !disable && !disableEnergySaver && state.openContactReported && !contact.currentValue("contact").contains("open") ) {
         // Discontinue any existing countdown.
-        log.debug "Thermostat Manager - All contacts have been closed. Discontinuing any existing thermostat pause countdown."
+        log.debug "Thermostat_Manager.contactClosedHandler(): All contacts have been closed. Discontinuing any existing thermostat pause countdown."
         unschedule(openContactPause)
         
         if (state.lastThermostatMode) {
@@ -494,7 +497,7 @@ def contactClosedHandler(event) {
                 logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
                 thermostat.cool()
             }
-            else { // state.openContactReported will not be set unless (state.lastThermostatMode != "off").
+            else { // contactOpenHandler() will not set state.openContactReported and initiate the thermostat pause countdown unless (state.lastThermostatMode != "off").
                 logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
                 thermostat.heat()
             }
@@ -503,20 +506,53 @@ def contactClosedHandler(event) {
         state.openContactReported = false
     }
     else if (debug) {
-        log.debug "Thermostat Manager - A contact has been closed."
+        log.debug "Thermostat_Manager.contactClosedHandler(): A contact has been closed."
+    }
+}
+
+def esConflictResolver() { // Remember that state values are not changed until the application has finished running.
+    // If all monitored contacts are currently closed.
+    if ( !disable && !disableEnergySaver && !contact.currentValue("contact").contains("open") ) {
+        // If an open contact has been reported, discontinue any existing countdown.
+        if (state.openContactReported) {
+            log.debug "Thermostat_Manager.esConflictResolver(): All contacts have been closed. Discontinuing any existing thermostat pause countdown."
+            unschedule(openContactPause)
+            state.openContactReported = false
+        }
+        
+        // If the thermostat is currently paused, restore it to its previous state.
+        if (state.lastThermostatMode) {
+            if (state.lastThermostatMode == "auto") {
+                logNNotify("Thermostat Manager - All contacts have been closed. Restoring auto mode.")
+                thermostat.auto()
+            }
+            else if (state.lastThermostatMode == "emergency heat") {
+                logNNotify("Thermostat Manager - All contacts have been closed. Restoring emergency heat mode.")
+                thermostat.emergencyHeat()
+            }
+            else if (state.lastThermostatMode == "cool") {
+                logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
+                thermostat.cool()
+            }
+            else { // contactOpenHandler() will not set state.openContactReported and initiate the thermostat pause countdown unless (state.lastThermostatMode != "off").
+                logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
+                thermostat.heat()
+            }
+            state.lastThermostatMode = null
+        }
     }
 }
 
 def openContactPause() {
     def thermostatMode = thermostat.currentValue("thermostatMode")
     
+    // If the thermostat is not in, "off" mode and any monitored contact is open.
     if ( (thermostatMode != "off") && contact.currentValue("contact").contains("open") ) {
-        // If the thermostat is not in, "off" mode and any monitored contact is open.
         state.lastThermostatMode = thermostat.currentValue("thermostatMode")
         logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
         thermostat.off()
     }
     else { // If the thermostat was turned off after an open contact was reported or no monitored contacts remain open.
-        state.clear()
+        state.openContactReported = false
     }
 }
