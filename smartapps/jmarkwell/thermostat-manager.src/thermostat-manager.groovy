@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018101604
+ *  Build 2018101701
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20181017
+ *          01: Disabled thermostat capability test in *empHandler() functions.
+ *
  *      20181016
  *          01: Created esConflictResolver(), to resolve a race condition that can cause Energy Saver to permanently
  *              switch off the thermostat if manualOverride is enabled.
@@ -278,8 +281,8 @@ def tempHandler(event) {
     esConflictResolver()
     
     if (debug) {
-        if (event?.device?.hasCapability("Thermostat")) { log.debug "Thermostat_Manager.tempHandler(): (${event.device.typeName}) IS A THERMOSTAT" }
-        else { log.debug "Thermostat_Manager.tempHandler(): (${event.device.typeName}) IS NOT A THERMOSTAT" }
+        // if (event?.device?.hasCapability("Thermostat")) { log.debug "Thermostat_Manager.tempHandler(): (${event.device.typeName}) IS A THERMOSTAT" }
+        // else { log.debug "Thermostat_Manager.tempHandler(): (${event.device.typeName}) IS NOT A THERMOSTAT" }
         if (!disableEnergySaver && contact) {
             log.debug "Thermostat_Manager.tempHandler(): At least one contact is open: ${openContact}"
             if (state.lastThermostatMode) { log.debug "Thermostat_Manager.tempHandler(): Thermostat Manager is currently paused." }
@@ -365,8 +368,8 @@ def outdoorTempHandler(event) {
     esConflictResolver()
     
     if (debug) {
-        if (event?.device?.hasCapability("Thermostat")) { log.debug "Thermostat_Manager.outdoorTempHandler(): (${event.device.typeName}) IS A THERMOSTAT" }
-        else { log.debug "Thermostat_Manager.outdoorTempHandler(): (${event.device.typeName}) IS NOT A THERMOSTAT" }
+        // if (event?.device?.hasCapability("Thermostat")) { log.debug "Thermostat_Manager.outdoorTempHandler(): (${event.device.typeName}) IS A THERMOSTAT" }
+        // else { log.debug "Thermostat_Manager.outdoorTempHandler(): (${event.device.typeName}) IS NOT A THERMOSTAT" }
         if (!disableEnergySaver && contact) {
             log.debug "Thermostat_Manager.outdoorTempHandler(): At least one contact is open: ${openContact}"
             if (state.lastThermostatMode) { log.debug "Thermostat_Manager.outdoorTempHandler(): Thermostat Manager is currently paused." }
