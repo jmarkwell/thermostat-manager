@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018101701
+ *  Build 2018101801
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20181018
+ *          01: Simplified contactClosedHandler() function.
+ *
  *      20181017
  *          01: Disabled thermostat capability test in *empHandler() functions.
  *
@@ -481,37 +484,11 @@ def contactOpenHandler(event) {
 }
 
 def contactClosedHandler(event) {
-    // If an open contact has been reported but all monitored contacts are currently closed.
-    if ( !disable && !disableEnergySaver && state.openContactReported && !contact.currentValue("contact").contains("open") ) {
-        // Discontinue any existing countdown.
-        log.debug "Thermostat_Manager.contactClosedHandler(): All contacts have been closed. Discontinuing any existing thermostat pause countdown."
-        unschedule(openContactPause)
-        
-        if (state.lastThermostatMode) {
-            // If the thermostat is currently paused, restore it to its previous state.
-            if (state.lastThermostatMode == "auto") {
-                logNNotify("Thermostat Manager - All contacts have been closed. Restoring auto mode.")
-                thermostat.auto()
-            }
-            else if (state.lastThermostatMode == "emergency heat") {
-                logNNotify("Thermostat Manager - All contacts have been closed. Restoring emergency heat mode.")
-                thermostat.emergencyHeat()
-            }
-            else if (state.lastThermostatMode == "cool") {
-                logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
-                thermostat.cool()
-            }
-            else { // contactOpenHandler() will not set state.openContactReported and initiate the thermostat pause countdown unless (state.lastThermostatMode != "off").
-                logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
-                thermostat.heat()
-            }
-            state.lastThermostatMode = null
-        }
-        state.openContactReported = false
-    }
-    else if (debug) {
+    if (debug) {
         log.debug "Thermostat_Manager.contactClosedHandler(): A contact has been closed."
     }
+    
+    esConflictResolver()
 }
 
 def esConflictResolver() { // Remember that state values are not changed until the application has finished running.
