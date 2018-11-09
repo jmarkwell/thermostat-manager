@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018110903
+ *  Build 2018110905
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -20,6 +20,8 @@
  *              debug.
  *          02: Thermostat Manager will no longer set temperature setPoints unnecessarily following a mode change.
  *          03: Correcting a spelling mistake in the changelog text.
+ *          04: Added more debug output to the verifyAndEnforce() function.
+ *          05: Modified some code comments.
  *
  *      20181108
  *          01: Consolidated the enforceCoolingSetPoint() and enforceHeatingSetPoint() functions into the new
@@ -488,7 +490,11 @@ def verifyAndEnforce(inMap) {
     def thermostatMode  = thermostat.currentValue("thermostatMode")
     
     if (thermostatMode == inMap.mode) { // If the thermostat has properly changed over to the requested mode.
-        if (inMap.setPoint) { // If Smart Home Monitor based setpoint enforcement is in use.
+        if (debug) {
+            log.debug "Thermostat Manager - Thermostat has successfully entered ${inMap.mode} mode. (${inMap.count}/3)"
+        }
+        
+        if (inMap.setPoint) { // If Smart Home Monitor based setPoint enforcement is in use.
             if ( (thermostatMode == "cool") && (thermostat.currentValue("coolingSetpoint") != inMap.setPoint) ) {
                 logNNotify("Thermostat Manager is setting the cooling setPoint to ${inMap.setPoint}.")
                 thermostat.setCoolingSetpoint(inMap.setPoint)
@@ -497,11 +503,17 @@ def verifyAndEnforce(inMap) {
                 logNNotify("Thermostat Manager is setting the heating setPoint to ${inMap.setPoint}.")
                 thermostat.setHeatingSetpoint(inMap.setPoint)
             }
+            else if (debug) { // If setPoints do not need to be set.
+                log.debug "Thermostat Manager - Existing setPoints match user defined settings."
+            }
+        }
+        else if (debug) { // If Smart Home Monitor based setPoint enforcement is not in use.
+            log.debug "Thermostat Manager - Smart Home Monitor based setPoint enforcement is not currently in use."
         }
     }
     else { // If the thermostat has failed to change over to the requested mode.
         if (inMap.count <= 3) { // Retry 2 times for a maximum of 3 total tries.
-            log.debug "Thermostat Manager - Thermostat has failed to change to ${inMap.mode} mode. (${inMap.count}/3) Trying again."
+            log.debug "Thermostat Manager - Thermostat has failed to initiate ${inMap.mode} mode. (${inMap.count}/3) Trying again."
             
             switch (inMap.mode) {
                 case "cool":
