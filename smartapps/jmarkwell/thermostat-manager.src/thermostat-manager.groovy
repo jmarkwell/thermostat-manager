@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018110902
+ *  Build 2018110903
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -18,7 +18,8 @@
  *      20181109
  *          01: Changed verifyAndEnforce() function's thermostat mode change retry logging type from logNNotify() to
  *              debug.
- *          02: Thermostat Manager will no longer set temperature setpoints unnecessarily following a mode change.
+ *          02: Thermostat Manager will no longer set temperature setPoints unnecessarily following a mode change.
+ *          03: Correcting a spelling mistake in the changelog text.
  *
  *      20181108
  *          01: Consolidated the enforceCoolingSetPoint() and enforceHeatingSetPoint() functions into the new
