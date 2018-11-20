@@ -589,8 +589,8 @@ def esConflictResolver() { // Remember that state values are not changed until t
                     logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
                     thermostat.heat()
                 }
+                runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: state.lastThermostatMode, count: 1] ] )
             }
-            runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: state.lastThermostatMode, count: 1] ] )
             state.lastThermostatMode = null
         }
     }
