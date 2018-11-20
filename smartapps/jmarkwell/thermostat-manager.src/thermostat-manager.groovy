@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018112001
+ *  Build 2018112002
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -17,6 +17,7 @@
  *      
  *      20181120
  *          01: Added verifyAndEnforce() step to Energy Saver functionality.
+ *          02: Updating verifyAndEnforce() to be able to handle, "auto" mode.
  *
  *      20181109
  *          01: Changed verifyAndEnforce() function's thermostat mode change retry logging type from logNNotify() to
@@ -527,6 +528,9 @@ def verifyAndEnforce(inMap) {
                     break
                 case "emergency heat":
                     thermostat.emergencyHeat()
+                    break
+                case "auto":
+                    thermostat.auto()
                     break
             }
             
