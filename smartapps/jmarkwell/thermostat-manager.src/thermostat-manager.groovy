@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018110905
+ *  Build 2018112001
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20181120
+ *          01: Added verifyAndEnforce() step to Energy Saver functionality.
+ *
  *      20181109
  *          01: Changed verifyAndEnforce() function's thermostat mode change retry logging type from logNNotify() to
  *              debug.
@@ -587,6 +590,7 @@ def esConflictResolver() { // Remember that state values are not changed until t
                     thermostat.heat()
                 }
             }
+            runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: state.lastThermostatMode, count: 1] ] )
             state.lastThermostatMode = null
         }
     }
