@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018112002
+ *  Build 2018110905
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,10 +15,6 @@
  *
  *  ChangeLog:
  *      
- *      20181120
- *          01: Added verifyAndEnforce() step to Energy Saver functionality.
- *          02: Updating verifyAndEnforce() to be able to handle, "auto" mode.
- *
  *      20181109
  *          01: Changed verifyAndEnforce() function's thermostat mode change retry logging type from logNNotify() to
  *              debug.
@@ -529,9 +525,6 @@ def verifyAndEnforce(inMap) {
                 case "emergency heat":
                     thermostat.emergencyHeat()
                     break
-                case "auto":
-                    thermostat.auto()
-                    break
             }
             
             runIn( 60, verifyAndEnforce, [data: [setPoint: inMap.setPoint, mode: inMap.mode, count: ++inMap.count] ] )
@@ -593,7 +586,6 @@ def esConflictResolver() { // Remember that state values are not changed until t
                     logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
                     thermostat.heat()
                 }
-                runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: state.lastThermostatMode, count: 1] ] )
             }
             state.lastThermostatMode = null
         }
