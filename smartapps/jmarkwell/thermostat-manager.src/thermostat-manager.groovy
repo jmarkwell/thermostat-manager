@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018110905
+ *  Build 2018112001
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20181120
+ *          01: Added some conditions to the verify portion of the verifyAndEnforce() function.
+ *
  *      20181109
  *          01: Changed verifyAndEnforce() function's thermostat mode change retry logging type from logNNotify() to
  *              debug.
@@ -510,8 +513,8 @@ def verifyAndEnforce(inMap) {
         else if (debug) { // If Smart Home Monitor based setPoint enforcement is not in use.
             log.debug "Thermostat Manager - Smart Home Monitor based setPoint enforcement is not currently in use."
         }
-    }
-    else { // If the thermostat has failed to change over to the requested mode.
+    }  // If the thermostat has failed to change over to the requested mode and has not been subsequently paused or otherwise disabled.
+    else if ( !disable && (disableEnergySaver || !state.lastThermostatMode) && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) ) {
         if (inMap.count <= 3) { // Retry 2 times for a maximum of 3 total tries.
             log.debug "Thermostat Manager - Thermostat has failed to initiate ${inMap.mode} mode. (${inMap.count}/3) Trying again."
             
