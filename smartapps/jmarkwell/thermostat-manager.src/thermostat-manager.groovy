@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2018112001
+ *  Build 2018112307
  *
  *  Copyright 2018 Jordan Markwell
  *
@@ -15,6 +15,17 @@
  *
  *  ChangeLog:
  *      
+ *      20181123
+ *          01: Adding a feature requested by SmartThings Community member, richardjroy: A hold-down timer for Energy
+ *              Saver.
+ *          02: Updated the debugging log output of the verifyAndEnforce() function.
+ *          03: Added new getSHMSetPoint() function.
+ *          04: Added verifyAndEnforce() functionality to Energy Saver functions.
+ *          05: Added, "auto" and "off" mode handling capabilities to the verifyAndEnforce() function.
+ *          06: contactOpenHandler() can no longer initiate thermostat pause countdown without the user having set a
+ *              value for openContactMinutes.
+ *          07: openContactMinutes now has a default value.
+ *
  *      20181120
  *          01: Added some conditions to the verify portion of the verifyAndEnforce() function.
  *
@@ -67,7 +78,7 @@
  *          01: A bit of code cleanup.
  *
  *      20180401
- *          01: Correcting a typo in logNNotify() that D_Gjorgjievski from the support forum discovered.
+ *          01: Correcting a typo in logNNotify() that D_Gjorgjievski from the SmartThings Community forum discovered.
  *          02: Corrected a problem with the openContact variable inside of the tempHandler() function.
  *
  *      20180327
@@ -242,9 +253,10 @@ def notificationPage() {
 def energySaverPage() {
     dynamicPage(name: "energySaverPage", title: "Energy Saver") {
         section() {
-            paragraph "Energy Saver will temporarily pause the thermostat (by placing it in \"off\" mode) in the case that any selected contact sensors are left open for a specified number of minutes."
+            paragraph "Energy Saver will temporarily pause the thermostat (by placing it in \"off\" mode) for a specified minimal amount of minutes in the case that any selected contact sensors are left open for a specified number of minutes."
             input name: "contact", title: "Contact Sensors", type: "capability.contactSensor", multiple: true, required: false
-            input name: "openContactMinutes", title: "Minutes", type: "number", required: false
+            input name: "openContactMinutes", title: "Open Contact Time (minutes)", type: "number", defaultValue: 5, required: false
+            input name: "minPauseMinutes", title: "Minimum Pause Time (minutes)", type: "number", defaultValue: 2, required: false
         }
         section() {
             input name: "disableEnergySaver", title: "Disable Energy Saver", type: "bool", defaultValue: false, required: true
@@ -328,20 +340,8 @@ def tempHandler(event) {
         logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting cooling mode.")
         thermostat.cool()
         
-        def setSetPoint = null
-        if (!disableSHMSetPointEnforce) {
-            if ( (securityStatus == "off") && (offCoolingSetPoint) ) {
-                setSetPoint = offCoolingSetPoint
-            }
-            else if ( (securityStatus == "stay") && (stayCoolingSetPoint) ) {
-                setSetPoint = stayCoolingSetPoint
-            }
-            else if ( (securityStatus == "away") && (awayCoolingSetPoint) ) {
-                setSetPoint = awayCoolingSetPoint
-            }
-        }
-        
         // SetPoints won't be changed unless the thermostat is already in the required mode.
+        def setSetPoint = getSHMSetPoint("cool")
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "cool", count: 1] ] )
     }
     else if ( // Temperature setPoints only stick for the active mode.
@@ -360,20 +360,8 @@ def tempHandler(event) {
             thermostat.emergencyHeat()
         }
         
-        def setSetPoint = null
-        if (!disableSHMSetPointEnforce) {
-            if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
-                setSetPoint = offHeatingSetPoint
-            }
-            else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
-                setSetPoint = stayHeatingSetPoint
-            }
-            else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
-                setSetPoint = awayHeatingSetPoint
-            }
-        }
-        
         // SetPoints won't be changed unless the thermostat is already in the required mode.
+        def setSetPoint = getSHMSetPoint(newMode)
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: newMode, count: 1] ] )
     }
     else if (debug) {
@@ -424,20 +412,8 @@ def outdoorTempHandler(event) {
         logNNotify("Thermostat Manager - Outdoor temperature has fallen to ${currentOutdoorTemp}. Setting emergency heat mode.")
         thermostat.emergencyHeat()
         
-        def setSetPoint = null
-        if (!disableSHMSetPointEnforce) {
-            if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
-                setSetPoint = offHeatingSetPoint
-            }
-            else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
-                setSetPoint = stayHeatingSetPoint
-            }
-            else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
-                setSetPoint = awayHeatingSetPoint
-            }
-        }
-        
         // SetPoints won't be changed unless the thermostat is already in the required mode.
+        def setSetPoint = getSHMSetPoint("emergency heat")
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "emergency heat", count: 1] ] )
     }
     else if ( // Temperature setPoints only stick for the active mode.
@@ -449,20 +425,8 @@ def outdoorTempHandler(event) {
         logNNotify("Thermostat Manager - Outdoor temperature has risen to ${currentOutdoorTemp}. Setting heat mode.")
         thermostat.heat()
         
-        def setSetPoint = null
-        if (!disableSHMSetPointEnforce) {
-            if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
-                setSetPoint = offHeatingSetPoint
-            }
-            else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
-                setSetPoint = stayHeatingSetPoint
-            }
-            else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
-                setSetPoint = awayHeatingSetPoint
-            }
-        }
-        
         // SetPoints won't be changed unless the thermostat is already in the required mode.
+        def setSetPoint = getSHMSetPoint("heat")
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "heat", count: 1] ] )
     }
     else if (debug) {
@@ -494,7 +458,7 @@ def verifyAndEnforce(inMap) {
     
     if (thermostatMode == inMap.mode) { // If the thermostat has properly changed over to the requested mode.
         if (debug) {
-            log.debug "Thermostat Manager - Thermostat has successfully entered ${inMap.mode} mode. (${inMap.count}/3)"
+            log.debug "Thermostat_Manager.verifyAndEnforce(): Thermostat has successfully entered ${inMap.mode} mode. (${inMap.count}/3)"
         }
         
         if (inMap.setPoint) { // If Smart Home Monitor based setPoint enforcement is in use.
@@ -507,16 +471,13 @@ def verifyAndEnforce(inMap) {
                 thermostat.setHeatingSetpoint(inMap.setPoint)
             }
             else if (debug) { // If setPoints do not need to be set.
-                log.debug "Thermostat Manager - Existing setPoints match user defined settings."
+                log.debug "Thermostat_Manager.verifyAndEnforce(): Existing setPoints match user defined settings."
             }
-        }
-        else if (debug) { // If Smart Home Monitor based setPoint enforcement is not in use.
-            log.debug "Thermostat Manager - Smart Home Monitor based setPoint enforcement is not currently in use."
         }
     }  // If the thermostat has failed to change over to the requested mode and has not been subsequently paused or otherwise disabled.
     else if ( !disable && (disableEnergySaver || !state.lastThermostatMode) && ( !manualOverride || (manualOverride && (thermostatMode != "off") ) ) ) {
         if (inMap.count <= 3) { // Retry 2 times for a maximum of 3 total tries.
-            log.debug "Thermostat Manager - Thermostat has failed to initiate ${inMap.mode} mode. (${inMap.count}/3) Trying again."
+            log.debug "Thermostat_Manager.verifyAndEnforce(): Thermostat has failed to initiate ${inMap.mode} mode. (${inMap.count}/3) Trying again."
             
             switch (inMap.mode) {
                 case "cool":
@@ -528,6 +489,12 @@ def verifyAndEnforce(inMap) {
                 case "emergency heat":
                     thermostat.emergencyHeat()
                     break
+                case "auto":
+                    thermostat.auto()
+                    break
+                case "off":
+                    thermostat.off()
+                    break
             }
             
             runIn( 60, verifyAndEnforce, [data: [setPoint: inMap.setPoint, mode: inMap.mode, count: ++inMap.count] ] )
@@ -538,11 +505,43 @@ def verifyAndEnforce(inMap) {
     }
 }
 
+def getSHMSetPoint(newMode) {
+    def securityStatus = location.currentValue("alarmSystemStatus")
+    def setSetPoint = null
+    
+    if (!disableSHMSetPointEnforce) {
+        if (newMode == "cool") {
+            if ( (securityStatus == "off") && (offCoolingSetPoint) ) {
+                setSetPoint = offCoolingSetPoint
+            }
+            else if ( (securityStatus == "stay") && (stayCoolingSetPoint) ) {
+                setSetPoint = stayCoolingSetPoint
+            }
+            else if ( (securityStatus == "away") && (awayCoolingSetPoint) ) {
+                setSetPoint = awayCoolingSetPoint
+            }
+        }
+        else if ( (newMode == "heat") || (newMode == "emergency heat") ) {
+            if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
+                setSetPoint = offHeatingSetPoint
+            }
+            else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
+                setSetPoint = stayHeatingSetPoint
+            }
+            else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
+                setSetPoint = awayHeatingSetPoint
+            }
+        }
+    }
+    
+    return(setSetPoint)
+}
+
 def contactOpenHandler(event) {
     def thermostatMode = thermostat.currentValue("thermostatMode")
     
     // If the thermostat is not off and all of the contacts were closed previously.
-    if (!disable && !disableEnergySaver && (thermostatMode != "off") && !state.openContactReported) {
+    if (!disable && !disableEnergySaver && openContactMinutes && (thermostatMode != "off") && !state.openContactReported) {
         state.openContactReported = true
         runIn( (openContactMinutes * 60), openContactPause )
         log.debug "Thermostat_Manager.contactOpenHandler(): A contact has been opened. Initiating countdown to thermostat pause."
@@ -563,6 +562,8 @@ def contactClosedHandler(event) {
 def esConflictResolver() { // Remember that state values are not changed until the application has finished running.
     // If all monitored contacts are currently closed.
     if ( !disable && !disableEnergySaver && !contact.currentValue("contact").contains("open") ) {
+        def nowTime = now()
+        
         // If an open contact has been reported, discontinue any existing countdown.
         if (state.openContactReported) {
             log.debug "Thermostat_Manager.esConflictResolver(): All contacts have been closed. Discontinuing any existing thermostat pause countdown."
@@ -570,27 +571,49 @@ def esConflictResolver() { // Remember that state values are not changed until t
             state.openContactReported = false
         }
         
-        // If the thermostat is currently paused, restore it to its previous state.
-        if (state.lastThermostatMode) {
-            if (thermostat.currentValue("thermostatMode") == "off") {
-                if (state.lastThermostatMode == "auto") {
-                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring auto mode.")
-                    thermostat.auto()
+        if ( !minPauseMinutes || (nowTime > state.pauseTime) ) {
+            // If the thermostat is currently paused, restore it to its previous state.
+            if (state.lastThermostatMode) {
+                if (thermostat.currentValue("thermostatMode") == "off") {
+                    if (state.lastThermostatMode == "auto") {
+                        logNNotify("Thermostat Manager - All contacts have been closed. Restoring auto mode.")
+                        thermostat.auto()
+                        
+                        // SetPoints won't be changed unless the thermostat is already in the required mode.
+                        runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: "auto", count: 1] ] )
+                    }
+                    else if (state.lastThermostatMode == "emergency heat") {
+                        logNNotify("Thermostat Manager - All contacts have been closed. Restoring emergency heat mode.")
+                        thermostat.emergencyHeat()
+                        
+                        // SetPoints won't be changed unless the thermostat is already in the required mode.
+                        def setSetPoint = getSHMSetPoint("emergency heat")
+                        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "emergency heat", count: 1] ] )
+                    }
+                    else if (state.lastThermostatMode == "cool") {
+                        logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
+                        thermostat.cool()
+                        
+                        // SetPoints won't be changed unless the thermostat is already in the required mode.
+                        def setSetPoint = getSHMSetPoint("cool")
+                        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "cool", count: 1] ] )
+                    }
+                    else {
+                        logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
+                        thermostat.heat()
+                        
+                        // SetPoints won't be changed unless the thermostat is already in the required mode.
+                        def setSetPoint = getSHMSetPoint("heat")
+                        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "heat", count: 1] ] )
+                    }
                 }
-                else if (state.lastThermostatMode == "emergency heat") {
-                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring emergency heat mode.")
-                    thermostat.emergencyHeat()
-                }
-                else if (state.lastThermostatMode == "cool") {
-                    logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
-                    thermostat.cool()
-                }
-                else {
-                    logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
-                    thermostat.heat()
-                }
+                state.lastThermostatMode = null
             }
-            state.lastThermostatMode = null
+        }
+        else if (minPauseMinutes) {
+            def reRunTime = Math.round( (state.pauseTime - nowTime) / 1000 )
+            if (debug) { log.debug "Thermostat_Manager.esConflictResolver(): esConflictResolver() will be run again in ${reRunTime} seconds."}
+            runIn(reRunTime, esConflictResolver)
         }
     }
 }
@@ -603,6 +626,11 @@ def openContactPause() {
         state.lastThermostatMode = thermostat.currentValue("thermostatMode")
         logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
         thermostat.off()
+        
+        if (minPauseMinutes) { state.pauseTime = now() + (60000 * minPauseMinutes) }
+        
+        // SetPoints won't be changed unless the thermostat is already in the required mode.
+        runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: "off", count: 1] ] )
     }
     else { // If the thermostat was turned off after an open contact was reported or no monitored contacts remain open.
         state.openContactReported = false
