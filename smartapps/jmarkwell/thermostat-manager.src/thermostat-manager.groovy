@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2019030802
+ *  Build 2019032702
  *
  *  Copyright 2019 Jordan Markwell
  *
@@ -15,6 +15,10 @@
  *
  *  ChangeLog:
  *      
+ *      20190327
+ *          01: Added ability to enforce setPoints when the Smart Home Monitor security system is in an armed status.
+ *          02: Added ability to always enforce temperature setPoints.
+ *
  *      20190308
  *          01: Adjusted the conditions that allow the tempHandler() function to initiate, "off" mode.
  *          02: Modified code comments.
@@ -247,6 +251,8 @@ def setPointPage() {
             input name: "awayCoolingSetPoint", title: "Cooling SetPoint", type: "number", required: false
         }
         section() {
+            input name: "enforceArmedSetPoints", title: "Enforce SetPoints in Armed Statuses", type: "bool", defaultValue: false, required: true
+            input name: "enforceSetPoints", title: "Always Enforce SetPoints", type: "bool", defaultValue: false, required: true
             input name: "disableSHMSetPointEnforce", title: "Disable Smart Home Monitor Based SetPoint Enforcement", type: "bool", defaultValue: false, required: true
         }
     }
@@ -328,6 +334,8 @@ def tempHandler(event) {
     def homeMode        = location.mode
     def securityStatus  = location.currentValue("alarmSystemStatus")
     
+    def SHMSetPoint = getSHMSetPoint(thermostatMode)
+    
     esConflictResolver()
     
     if (debug) {
@@ -342,6 +350,7 @@ def tempHandler(event) {
         log.debug "Thermostat_Manager.tempHandler(): Fan Mode: ${fanMode}"
         log.debug "Thermostat_Manager.tempHandler(): Mode: ${thermostatMode}"
         log.debug "Thermostat_Manager.tempHandler(): Heating Threshold: ${heatingThreshold} | Cooling Threshold: ${coolingThreshold}"
+        if (SHMSetPoint) { log.debug "Thermostat_Manager.tempHandler(): Smart Home Monitor SetPoint: ${SHMSetPoint}" }
         log.debug "Thermostat_Manager.tempHandler(): Heating Setpoint: ${heatingSetpoint} | Cooling Setpoint: ${coolingSetpoint}"
         log.debug "Thermostat_Manager.tempHandler(): Indoor Temperature: ${currentTemp}"
     }
@@ -418,6 +427,17 @@ def tempHandler(event) {
         // SetPoints can only be set for the thermostat's currently active mode.
         runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: "off", count: 1] ] )
     }
+    else if (   // if disableSHMSetPointEnforce is enabled, SHMSetPoint will be null.
+                !disable && SHMSetPoint &&
+                ( enforceSetPoints || ( enforceArmedSetPoints && ( (securityStatus == "stay") || (securityStatus == "away") ) ) ) &&
+                (
+                    ( ( (thermostatMode == "heat") || (thermostatMode == "emergency heat") ) && (heatingSetpoint != SHMSetPoint) ) ||
+                    ( (thermostatMode == "cool") && (coolingSetpoint != SHMSetPoint) )
+                )
+    ) {
+        // SetPoints can only be set for the thermostat's currently active mode.
+        runIn( 60, verifyAndEnforce, [data: [setPoint: SHMSetPoint, mode: thermostatMode, count: 1] ] )
+    }
     else if (debug) {
         log.debug "Thermostat_Manager.tempHandler(): Thermostat Manager standing by."
     }
@@ -434,6 +454,8 @@ def outdoorTempHandler(event) {
     def homeMode            = location.mode
     def securityStatus      = location.currentValue("alarmSystemStatus")
     
+    def SHMSetPoint = getSHMSetPoint(thermostatMode)
+    
     esConflictResolver()
     
     if (debug) {
@@ -448,6 +470,7 @@ def outdoorTempHandler(event) {
         log.debug "Thermostat_Manager.outdoorTempHandler(): Fan Mode: ${fanMode}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Mode: ${thermostatMode}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Heating Threshold: ${heatingThreshold} | Cooling Threshold: ${coolingThreshold}"
+        if (SHMSetPoint) { log.debug "Thermostat_Manager.tempHandler(): Smart Home Monitor SetPoint: ${SHMSetPoint}" }
         log.debug "Thermostat_Manager.outdoorTempHandler(): Heating Setpoint: ${heatingSetpoint} | Cooling Setpoint: ${coolingSetpoint}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Outdoor Temperature: ${currentOutdoorTemp}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Indoor Temperature: ${currentTemp}"
