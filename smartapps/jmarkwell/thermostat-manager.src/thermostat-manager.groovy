@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2019032902
+ *  Build 2019040501
  *
  *  Copyright 2019 Jordan Markwell
  *
@@ -15,6 +15,11 @@
  *
  *  ChangeLog:
  *      
+ *      20190405
+ *          01: Energy Saver can now initiate paused status when the thermostat is in, "off" mode. This was done in
+ *              order to cover a corner case in which the thermostat might be kicked on in the case that Energy Saver is
+ *              enabled and a contact is opened after the thermostat has been manually turned off.
+ *
  *      20190329
  *          01: Updated help text and code comments.
  *          02: Temperature thresholds will no longer be rounded and the currentTemp and currentOutdoorTemp variables
@@ -644,7 +649,7 @@ def contactOpenHandler(event) {
     def thermostatMode = thermostat.currentValue("thermostatMode")
     
     // If the thermostat is not off and all of the contacts were closed previously.
-    if (!disable && !disableEnergySaver && openContactMinutes && (thermostatMode != "off") && !state.openContactReported) {
+    if (!disable && !disableEnergySaver && openContactMinutes && !state.openContactReported) {
         state.openContactReported = true
         runIn( (openContactMinutes * 60), openContactPause )
         log.debug "Thermostat_Manager.contactOpenHandler(): A contact has been opened. Initiating countdown to thermostat pause."
@@ -679,7 +684,14 @@ def esConflictResolver() { // Remember that state values are not changed until t
             if (state.lastThermostatMode) {
                 // If this block can be entered, the thermostat is paused and tempHandler() condition checks will properly fail.
                 if (thermostat.currentValue("thermostatMode") == "off") {
-                    if (state.lastThermostatMode == "cool") {
+                    if (state.lastThermostatMode == "heat") {
+                        logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
+                        thermostat.heat()
+                        
+                        def setSetPoint = getSHMSetPoint("heat")
+                        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "heat", count: 1] ] )
+                    }
+                    else if (state.lastThermostatMode == "cool") {
                         logNNotify("Thermostat Manager - All contacts have been closed. Restoring cooling mode.")
                         thermostat.cool()
                         
@@ -699,13 +711,6 @@ def esConflictResolver() { // Remember that state values are not changed until t
                         
                         runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: "auto", count: 1] ] )
                     }
-                    else {
-                        logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
-                        thermostat.heat()
-                        
-                        def setSetPoint = getSHMSetPoint("heat")
-                        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "heat", count: 1] ] )
-                    }
                 }
                 state.lastThermostatMode = null
             }
@@ -721,17 +726,18 @@ def esConflictResolver() { // Remember that state values are not changed until t
 def openContactPause() {
     def thermostatMode = thermostat.currentValue("thermostatMode")
     
-    // If the thermostat is not in, "off" mode and any monitored contact is open.
-    if ( (thermostatMode != "off") && contact.currentValue("contact").contains("open") ) {
+    if ( contact.currentValue("contact").contains("open") ) { // If any monitored contact is open.
         state.lastThermostatMode = thermostat.currentValue("thermostatMode")
         logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
-        thermostat.off()
         
         if (minPauseMinutes) { state.pauseTime = now() + (60000 * minPauseMinutes) }
         
-        runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: "off", count: 1] ] )
+        if (thermostatMode != "off") {
+            thermostat.off()
+            runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: "off", count: 1] ] )
+        }
     }
-    else { // If the thermostat was turned off after an open contact was reported or no monitored contacts remain open.
+    else { // If no monitored contacts remain open.
         state.openContactReported = false
     }
 }
