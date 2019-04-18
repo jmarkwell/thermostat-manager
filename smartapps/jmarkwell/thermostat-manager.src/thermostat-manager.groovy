@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2019040501
+ *  Build 2019041703
  *
  *  Copyright 2019 Jordan Markwell
  *
@@ -15,6 +15,12 @@
  *
  *  ChangeLog:
  *      
+ *      20190417
+ *          01: Added a "hold-after" timer option to Energy Saver. If set, the hold-after timer will hold the thermostat
+ *              in a paused status for a specified number of minutes after all contacts have been closed.
+ *          02: The default value of openContactMinutes is now 2.
+ *          03: Rearranged the condition checks in esConflictResolver() to reduce unnecessary processing.
+ *
  *      20190405
  *          01: Energy Saver can now initiate paused status when the thermostat is in, "off" mode. This was done in
  *              order to cover a corner case in which the thermostat might be kicked on in the case that Energy Saver is
@@ -288,8 +294,10 @@ def energySaverPage() {
             paragraph "Energy Saver will temporarily pause the thermostat (by placing it in \"off\" mode) for a specified minimal amount of minutes in the case that any selected contact sensors are left open for a specified number of minutes."
             input name: "contact", title: "Contact Sensors", type: "capability.contactSensor", multiple: true, required: false
             paragraph "Open Contact Time must be set to a value of 1 or greater."
-            input name: "openContactMinutes", title: "Open Contact Time (minutes)", type: "number", defaultValue: 5, required: false
+            input name: "openContactMinutes", title: "Open Contact Time (minutes)", type: "number", defaultValue: 2, required: false
             input name: "minPauseMinutes", title: "Minimum Pause Time (minutes)", type: "number", defaultValue: 2, required: false
+            paragraph "If Hold-After Time is specified/non-zero, once the thermostat enters a paused state it will remain paused for the specified number of minutes after all selected contacts have been closed."
+            input name: "holdAfterMinutes", title: "Hold-After Time (minutes)", type: "number", defaultValue: 2, required: false
         }
         section() {
             input name: "disableEnergySaver", title: "Disable Energy Saver", type: "bool", defaultValue: false, required: true
@@ -671,18 +679,29 @@ def esConflictResolver() { // Remember that state values are not changed until t
     // If all monitored contacts are currently closed.
     if ( !disable && !disableEnergySaver && !contact.currentValue("contact").contains("open") ) {
         def nowTime = now()
+        def pauseTime = state.pauseTime
         
         // If an open contact has been reported, discontinue any existing countdown.
         if (state.openContactReported) {
             log.debug "Thermostat_Manager.esConflictResolver(): All contacts have been closed. Discontinuing any existing thermostat pause countdown."
             unschedule(openContactPause)
             state.openContactReported = false
+            
+            if (state.lastThermostatMode && holdAfterMinutes) {
+                pauseTime = nowTime + (60000 * holdAfterMinutes)
+                if (pauseTime > state.pauseTime) {
+                    state.pauseTime = pauseTime
+                }
+                else {
+                    pauseTime = state.pauseTime
+                }
+            }
         }
         
-        if ( !minPauseMinutes || (nowTime > state.pauseTime) ) {
-            // If the thermostat is currently paused, restore it to its previous state.
-            if (state.lastThermostatMode) {
-                // If this block can be entered, the thermostat is paused and tempHandler() condition checks will properly fail.
+        if (state.lastThermostatMode) {
+            // If this block can be entered, the thermostat is paused and tempHandler() condition checks will properly fail.
+            if ( !pauseTime || (nowTime >= pauseTime) ) {
+                // If the thermostat is currently paused, restore it to its previous state.
                 if (thermostat.currentValue("thermostatMode") == "off") {
                     if (state.lastThermostatMode == "heat") {
                         logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
@@ -714,11 +733,11 @@ def esConflictResolver() { // Remember that state values are not changed until t
                 }
                 state.lastThermostatMode = null
             }
-        }
-        else if (minPauseMinutes) {
-            def reRunTime = Math.round( (state.pauseTime - nowTime) / 1000 )
-            if (debug) { log.debug "Thermostat_Manager.esConflictResolver(): esConflictResolver() will be run again in ${reRunTime} seconds."}
-            runIn(reRunTime, esConflictResolver)
+            else if (pauseTime && (pauseTime > nowTime) ) {
+                def reRunTime = Math.round( (pauseTime - nowTime) / 1000 )
+                if (debug) { log.debug "Thermostat_Manager.esConflictResolver(): esConflictResolver() will be run again in ${reRunTime} seconds."}
+                runIn(reRunTime, esConflictResolver)
+            }
         }
     }
 }
