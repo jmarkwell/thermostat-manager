@@ -1,20 +1,27 @@
 /**
  *  Thermostat Manager
- *  Build 2019041703
+ *  Build 2019080903
  *
  *  Copyright 2019 Jordan Markwell
  *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
- *  in compliance with the License. You may obtain a copy of the License at:
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ *  the License. You may obtain a copy of the License at:
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed
- *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
- *  for the specific language governing permissions and limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ *  an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ *  specific language governing permissions and limitations under the License.
  *
  *  ChangeLog:
  *      
+ *      20190809
+ *          01: Corrected an issue that caused the thermostat to be placed in, "off" mode for users who had intended for
+ *              Thermostat Manager not to be setting modes.
+ *          02: The tempHandler() function will no longer be allowed to set, "heat" mode while the system is in,
+ *              "emergency heat" mode.
+ *          03: Updated preference text, log output and code comments.
+ *
  *      20190417
  *          01: Added a "hold-after" timer option to Energy Saver. If set, the hold-after timer will hold the thermostat
  *              in a paused status for a specified number of minutes after all contacts have been closed.
@@ -223,10 +230,10 @@ def mainPage() {
             input "thermostat", "capability.thermostat", title: "Thermostat", multiple: false, required: true
             paragraph "When the temperature falls below the heating threshold, Thermostat Manager will set heating mode. This value must always be lower than the Cooling Threshold. Recommended value: 70F (21C)"
             input name: "heatingThreshold", title: "Heating Threshold", type: "number", required: false
-            input name: "disableHeat", title: "Disable Heat Mode", type: "bool", defaultValue: false, required: true
+            input name: "disableHeat", title: "Don't Set Heat Mode", type: "bool", defaultValue: false, required: true
             paragraph "When the temperature rises higher than the cooling threshold, Thermostat Manager will set cooling mode. This value must always be higher than the Heating Threshold. Recommended value: 75F (24C)"
             input name: "coolingThreshold", title: "Cooling Threshold", type: "number", required: false
-            input name: "disableCool", title: "Disable Cool Mode", type: "bool", defaultValue: false, required: true
+            input name: "disableCool", title: "Don't Set Cool Mode", type: "bool", defaultValue: false, required: true
         }
         section("Tips") {
             paragraph "If you set the cooling threshold at the lowest setting you use in your modes and you set the heating threshold at the highest setting you use in your modes, you will not need to create multiple instances of Thermostat Manager."
@@ -383,7 +390,7 @@ def tempHandler(event) {
                 !disable && !disableHeat &&
                 (disableEnergySaver || !state.lastThermostatMode) &&
                 ( !manualOverride || ( manualOverride && ( (thermostatMode != "off") || state.ignoreOverride ) ) ) &&
-                !useEmergencyHeat && (thermostatMode != "heat") &&
+                !useEmergencyHeat && (thermostatMode != "heat") && (thermostatMode != "emergency heat") &&
                 heatingThreshold && (currentTemp < heatingThreshold)
     ) {
         
@@ -394,11 +401,11 @@ def tempHandler(event) {
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "heat", count: 1] ] )
     }
     else if (
-            !disable && !disableCool &&
-            (disableEnergySaver || !state.lastThermostatMode) &&
-            ( !manualOverride || ( manualOverride && ( (thermostatMode != "off") || state.ignoreOverride ) ) ) &&
-            (thermostatMode != "cool") &&
-            coolingThreshold && (currentTemp > coolingThreshold)
+                !disable && !disableCool &&
+                (disableEnergySaver || !state.lastThermostatMode) &&
+                ( !manualOverride || ( manualOverride && ( (thermostatMode != "off") || state.ignoreOverride ) ) ) &&
+                (thermostatMode != "cool") &&
+                coolingThreshold && (currentTemp > coolingThreshold)
     ) {
         
         logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting cooling mode.")
@@ -421,26 +428,28 @@ def tempHandler(event) {
         def setSetPoint = getSHMSetPoint("emergency heat")
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "emergency heat", count: 1] ] )
     }
-    else if (   // If the thermostat is in "heat", "cool", or "emergency heat" mode, then it can't be (paused, or) in, "off" mode.
-                !disable && ( (!heatingThreshold || disableHeat) || useEmergencyHeat ) &&
-                (
-                    (
-                        (thermostatMode == "emergency heat") &&
-                        // Either the temperature is between the heating and cooling thresholds or both heat and cool modes are disabled.
-                        ( ( coolingThreshold && (currentTemp < coolingThreshold) ) || ( (!coolingThreshold || disableCool) ) ) &&
-                        heatingThreshold && (currentTemp > heatingThreshold)
-                    ) ||
-                    (   // We're in a mode that we shouldn't be in.
-                        ( (!coolingThreshold || disableCool) ) && ( (thermostatMode == "heat") || (thermostatMode == "cool") )
-                    )
-                )
+    else if (
+                !disable &&
+                // If the thermostat is in, "emergency heat" mode, then it can't be (paused, or) in, "off" mode.
+                (thermostatMode == "emergency heat") &&
+                // If either the temperature is between the heating and cooling thresholds or cool mode is disabled.
+                ( (!coolingThreshold || disableCool) || ( coolingThreshold && (currentTemp < coolingThreshold) ) ) &&
+                heatingThreshold && (currentTemp > heatingThreshold)
     ) {
         
-        state.ignoreOverride = true
-        logNNotify("Thermostat Manager - The temperature has fallen to ${currentTemp}. Setting off mode.")
-        thermostat.off()
+        def newMode = "heat"
+        if (disableHeat) {
+            newMode = "off"
+            state.ignoreOverride = true
+            logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting off mode.")
+            thermostat.off()
+        } else {
+            logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting heat mode.")
+            thermostat.heat()
+        }
         
-        runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: "off", count: 1] ] )
+        def setSetPoint = getSHMSetPoint(newMode)
+        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: newMode, count: 1] ] )
     }
     else if (   // if disableSHMSetPointEnforce is enabled, SHMSetPoint will be null.
                 !disable && SHMSetPoint &&
@@ -516,7 +525,7 @@ def outdoorTempHandler(event) {
                 !disable && !useEmergencyHeat && !disableExtEmergencyHeat &&
                 // If the thermostat is in, "emergency heat" mode, then it can't be (paused, or) in, "off" mode.
                 (thermostatMode == "emergency heat") &&
-                // If the outdoor temperature rises above the emergencyHeatThreshold but stays below the heatingThreshold.
+                // If the outdoor temperature rises above the emergencyHeatThreshold but the indoor temperature stays below the heatingThreshold.
                 ( !heatingThreshold || (heatingThreshold && (currentTemp < heatingThreshold) ) ) &&
                 emergencyHeatThreshold && (currentOutdoorTemp > emergencyHeatThreshold)
     ) {
