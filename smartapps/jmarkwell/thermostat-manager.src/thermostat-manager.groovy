@@ -1,6 +1,6 @@
 /**
  *  Thermostat Manager
- *  Build 2019080903
+ *  Build 2019110606
  *
  *  Copyright 2019 Jordan Markwell
  *
@@ -15,6 +15,16 @@
  *
  *  ChangeLog:
  *      
+ *      20191106
+ *          01: Added ability to use remote temperature sensor.
+ *          02: contactOpenHandler() can no longer schedule openContactPause() while the thermostat is in a paused
+ *              state.
+ *          03: When esConflictResolver() executes ahead of state.pauseTime, rescheduled executions that follow will now
+ *              execute one second after state.pauseTime.
+ *          04: Updated esConflictResolver() log output.
+ *          05: Corrected a mistake in outdoorTempHandler() log output.
+ *          06: Removed some dead code from the contactOpenHandler() function.
+ *
  *      20190809
  *          01: Corrected an issue that caused the thermostat to be placed in, "off" mode for users who had intended for
  *              Thermostat Manager not to be setting modes.
@@ -228,6 +238,7 @@ def mainPage() {
         }
         section("Main Configuration") {
             input "thermostat", "capability.thermostat", title: "Thermostat", multiple: false, required: true
+            input "tempSensor", "capability.temperatureMeasurement", title: "Temperature Sensor", multiple: false, required: true
             paragraph "When the temperature falls below the heating threshold, Thermostat Manager will set heating mode. This value must always be lower than the Cooling Threshold. Recommended value: 70F (21C)"
             input name: "heatingThreshold", title: "Heating Threshold", type: "number", required: false
             input name: "disableHeat", title: "Don't Set Heat Mode", type: "bool", defaultValue: false, required: true
@@ -344,7 +355,7 @@ def updated() {
 }
 
 def initialize() {
-    subscribe(thermostat, "temperature", tempHandler)
+    subscribe(tempSensor, "temperature", tempHandler)
     subscribe(contact, "contact.open", contactOpenHandler)
     subscribe(contact, "contact.closed", contactClosedHandler)
     subscribe(outdoorTempSensor, "temperature", outdoorTempHandler)
@@ -352,7 +363,7 @@ def initialize() {
 
 def tempHandler(event) {
     def openContact     = contact?.currentValue("contact")?.contains("open")
-    def currentTemp     = Math.round( thermostat.currentValue("temperature") )
+    def currentTemp     = Math.round( tempSensor.currentValue("temperature") )
     def heatingSetpoint = thermostat.currentValue("heatingSetpoint")
     def coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     def thermostatMode  = thermostat.currentValue("thermostatMode")
@@ -469,7 +480,7 @@ def tempHandler(event) {
 
 def outdoorTempHandler(event) {
     def openContact         = contact?.currentValue("contact")?.contains("open")
-    def currentTemp         = Math.round( thermostat.currentValue("temperature") )
+    def currentTemp         = Math.round( tempSensor.currentValue("temperature") )
     def currentOutdoorTemp  = Math.round( outdoorTempSensor.currentValue("temperature") )
     def heatingSetpoint     = thermostat.currentValue("heatingSetpoint")
     def coolingSetpoint     = thermostat.currentValue("coolingSetpoint")
@@ -494,7 +505,7 @@ def outdoorTempHandler(event) {
         log.debug "Thermostat_Manager.outdoorTempHandler(): Fan Mode: ${fanMode}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Mode: ${thermostatMode}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Heating Threshold: ${heatingThreshold} | Cooling Threshold: ${coolingThreshold}"
-        if (SHMSetPoint) { log.debug "Thermostat_Manager.tempHandler(): Smart Home Monitor SetPoint: ${SHMSetPoint}" }
+        if (SHMSetPoint) { log.debug "Thermostat_Manager.outdoorTempHandler(): Smart Home Monitor SetPoint: ${SHMSetPoint}" }
         log.debug "Thermostat_Manager.outdoorTempHandler(): Heating Setpoint: ${heatingSetpoint} | Cooling Setpoint: ${coolingSetpoint}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Outdoor Temperature: ${currentOutdoorTemp}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Indoor Temperature: ${currentTemp}"
@@ -663,16 +674,17 @@ def getSHMSetPoint(newMode) {
 }
 
 def contactOpenHandler(event) {
-    def thermostatMode = thermostat.currentValue("thermostatMode")
-    
-    // If the thermostat is not off and all of the contacts were closed previously.
-    if (!disable && !disableEnergySaver && openContactMinutes && !state.openContactReported) {
-        state.openContactReported = true
-        runIn( (openContactMinutes * 60), openContactPause )
-        log.debug "Thermostat_Manager.contactOpenHandler(): A contact has been opened. Initiating countdown to thermostat pause."
-    }
-    else if (debug) {
+    if (debug) {
         log.debug "Thermostat_Manager.contactOpenHandler(): A contact has been opened."
+    }
+    
+    if (!disable && !disableEnergySaver && !state.openContactReported) {
+        state.openContactReported = true
+        
+        if (openContactMinutes && !state.lastThermostatMode) {
+            runIn( (openContactMinutes * 60), openContactPause )
+            log.debug "Thermostat_Manager.contactOpenHandler(): Initiating countdown to thermostat pause."
+        }
     }
 }
 
@@ -713,7 +725,7 @@ def esConflictResolver() { // Remember that state values are not changed until t
                 // If the thermostat is currently paused, restore it to its previous state.
                 if (thermostat.currentValue("thermostatMode") == "off") {
                     if (state.lastThermostatMode == "heat") {
-                        logNNotify("Thermostat Manager - All contacts have been closed. Setting heat mode.")
+                        logNNotify("Thermostat Manager - All contacts have been closed. Restoring heat mode.")
                         thermostat.heat()
                         
                         def setSetPoint = getSHMSetPoint("heat")
@@ -743,7 +755,7 @@ def esConflictResolver() { // Remember that state values are not changed until t
                 state.lastThermostatMode = null
             }
             else if (pauseTime && (pauseTime > nowTime) ) {
-                def reRunTime = Math.round( (pauseTime - nowTime) / 1000 )
+                def reRunTime = Math.round( ( (pauseTime + 1000) - nowTime) / 1000 )
                 if (debug) { log.debug "Thermostat_Manager.esConflictResolver(): esConflictResolver() will be run again in ${reRunTime} seconds."}
                 runIn(reRunTime, esConflictResolver)
             }
