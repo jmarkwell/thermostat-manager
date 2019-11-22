@@ -1,52 +1,50 @@
-/**
+/*
  *  Thermostat Manager
  *  Build 2019110606
  *
  *  Copyright 2019 Jordan Markwell
  *
- *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
- *  the License. You may obtain a copy of the License at:
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may
+ *  obtain a copy of the License at:
  *
  *      http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
- *  an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
- *  specific language governing permissions and limitations under the License.
+ *  Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions
+ *  and limitations under the License.
  *
  *  ChangeLog:
  *      
  *      20191106
  *          01: Added ability to use remote temperature sensor.
- *          02: contactOpenHandler() can no longer schedule openContactPause() while the thermostat is in a paused
- *              state.
- *          03: When esConflictResolver() executes ahead of state.pauseTime, rescheduled executions that follow will now
- *              execute one second after state.pauseTime.
+ *          02: contactOpenHandler() can no longer schedule openContactPause() while the thermostat is in a paused state.
+ *          03: When esConflictResolver() executes ahead of state.pauseTime, rescheduled executions that follow will now execute one second
+ *              after state.pauseTime.
  *          04: Updated esConflictResolver() log output.
  *          05: Corrected a mistake in outdoorTempHandler() log output.
  *          06: Removed some dead code from the contactOpenHandler() function.
  *
  *      20190809
- *          01: Corrected an issue that caused the thermostat to be placed in, "off" mode for users who had intended for
- *              Thermostat Manager not to be setting modes.
- *          02: The tempHandler() function will no longer be allowed to set, "heat" mode while the system is in,
- *              "emergency heat" mode.
+ *          01: Corrected an issue that caused the thermostat to be placed in, "off" mode for users who had intended for Thermostat Manager
+ *              not to be setting modes.
+ *          02: The tempHandler() function will no longer be allowed to set, "heat" mode while the system is in, "emergency heat" mode.
  *          03: Updated preference text, log output and code comments.
  *
  *      20190417
- *          01: Added a "hold-after" timer option to Energy Saver. If set, the hold-after timer will hold the thermostat
- *              in a paused status for a specified number of minutes after all contacts have been closed.
+ *          01: Added a "hold-after" timer option to Energy Saver. If set, the hold-after timer will hold the thermostat in a paused status
+ *              for a specified number of minutes after all contacts have been closed.
  *          02: The default value of openContactMinutes is now 2.
  *          03: Rearranged the condition checks in esConflictResolver() to reduce unnecessary processing.
  *
  *      20190405
- *          01: Energy Saver can now initiate paused status when the thermostat is in, "off" mode. This was done in
- *              order to cover a corner case in which the thermostat might be kicked on in the case that Energy Saver is
- *              enabled and a contact is opened after the thermostat has been manually turned off.
+ *          01: Energy Saver can now initiate paused status when the thermostat is in, "off" mode. This was done in order to cover a corner
+ *              case in which the thermostat might be kicked on in the case that Energy Saver is enabled and a contact is opened after the
+ *              thermostat has been manually turned off.
  *
  *      20190329
  *          01: Updated help text and code comments.
- *          02: Temperature thresholds will no longer be rounded and the currentTemp and currentOutdoorTemp variables
- *              will be stored rounded.
+ *          02: Temperature thresholds will no longer be rounded and the currentTemp and currentOutdoorTemp variables will be stored
+ *              rounded.
  *
  *      20190327
  *          01: Added ability to enforce setPoints when the Smart Home Monitor security system is in an armed status.
@@ -58,8 +56,8 @@
  *
  *      20190307
  *          01: Added slider to disable "heat" mode.
- *          02: Added condition that the indoor temperature must be below the heatingThreshold (if it exists) in order
- *              to switch to "emergency heat" mode based on an outdoor temperature sensor.
+ *          02: Added condition that the indoor temperature must be below the heatingThreshold (if it exists) in order to switch to
+ *              "emergency heat" mode based on an outdoor temperature sensor.
  *          03: Added slider to disable "cool" mode.
  *          04: "Allow Manual Thermostat Off to Override Thermostat Manager" is now enabled by default.
  *          05: Rearranged the code to prioritize heating mode.
@@ -67,31 +65,29 @@
  *          07: Extended the descriptions of Heating/Cooling Threshold settings.
  *
  *      20181123
- *          01: Adding a feature requested by SmartThings Community member, richardjroy: A hold-down timer for Energy
- *              Saver.
+ *          01: Adding a feature requested by SmartThings Community member, richardjroy: A hold-down timer for Energy Saver.
  *          02: Updated the debugging log output of the verifyAndEnforce() function.
  *          03: Added new getSHMSetPoint() function.
  *          04: Added verifyAndEnforce() functionality to Energy Saver functions.
  *          05: Added, "auto" and "off" mode handling capabilities to the verifyAndEnforce() function.
- *          06: contactOpenHandler() can no longer initiate thermostat pause countdown without the user having set a
- *              value for openContactMinutes.
+ *          06: contactOpenHandler() can no longer initiate thermostat pause countdown without the user having set a value for
+ *              openContactMinutes.
  *          07: openContactMinutes now has a default value.
  *
  *      20181120
  *          01: Added some conditions to the verify portion of the verifyAndEnforce() function.
  *
  *      20181109
- *          01: Changed verifyAndEnforce() function's thermostat mode change retry logging type from logNNotify() to
- *              debug.
+ *          01: Changed verifyAndEnforce() function's thermostat mode change retry logging type from logNNotify() to debug.
  *          02: Thermostat Manager will no longer set temperature setPoints unnecessarily following a mode change.
  *          03: Correcting a spelling mistake in the changelog text.
  *          04: Added more debug output to the verifyAndEnforce() function.
  *          05: Modified some code comments.
  *
  *      20181108
- *          01: Consolidated the enforceCoolingSetPoint() and enforceHeatingSetPoint() functions into the new
- *              verifyAndEnforce() function. verifyAndEnforce() adds the capability to verify that a requested
- *              thermostat mode change has taken place and takes corrective action if it has not.
+ *          01: Consolidated the enforceCoolingSetPoint() and enforceHeatingSetPoint() functions into the new verifyAndEnforce() function.
+ *              verifyAndEnforce() adds the capability to verify that a requested thermostat mode change has taken place and takes
+ *              corrective action if it has not.
  *
  *      20181018
  *          01: Simplified contactClosedHandler() function.
@@ -100,24 +96,23 @@
  *          01: Disabled thermostat capability test in *empHandler() functions.
  *
  *      20181016
- *          01: Created esConflictResolver(), to resolve a race condition that can cause Energy Saver to permanently
- *              switch off the thermostat if manualOverride is enabled.
+ *          01: Created esConflictResolver(), to resolve a race condition that can cause Energy Saver to permanently switch off the
+ *              thermostat if manualOverride is enabled.
  *          02: Changed debug log output.
  *          03: Updated code comments.
  *          04: Modified conditions for mode change commands called by esConflictResolver().
  *
  *      20181012
  *          01: Added a toggle to disable externally controlled emergency heat.
- *          02: Added capability for externally controlled emergency heat system to re-engage, "heat" mode if the
- *              temperature rises above the emergencyHeatThreshold.
+ *          02: Added capability for externally controlled emergency heat system to re-engage, "heat" mode if the temperature rises above
+ *              the emergencyHeatThreshold.
  *          03: Renamed extTempHandler() to outdoorTempHandler().
  *          04: Edited the wording of emergency heat menu items.
  *
  *      20181011
  *          01: Created a new menu page for emergency heat settings and moved the useEmergencyHeat toggle into it.
  *          02: Renamed disableSHMSPEnforce to disableSHMSetPointEnforce.
- *          03: Added capability to engage, "emergency heat" mode based on temperature readings from an outdoor
- *              thermometer.
+ *          03: Added capability to engage, "emergency heat" mode based on temperature readings from an outdoor thermometer.
  *
  *      20181010
  *          01: Added, "emergency heat" mode to contactClosedHandler().
@@ -135,8 +130,8 @@
  *      20180327
  *          01: Now accounting for all possible thermostat modes in tempHandler().
  *          02: Disabling Thermostat Manager will now disable Energy Saver.
- *          03: Logging and notifications will now continue to function even if a service is disabled (with the
- *              exception of the notification service itself).
+ *          03: Logging and notifications will now continue to function even if a service is disabled (with the exception of the
+ *              notification service itself).
  *          04: General code cleanup.
  *
  *      20180326
@@ -144,8 +139,7 @@
  *          02: Adding (thermostatMode != "off") condition to openContactPause().
  *
  *      20180307
- *          01: If notifications are not configured or are disabled, quietly record qualifying events in the
- *              notification log.
+ *          01: If notifications are not configured or are disabled, quietly record qualifying events in the notification log.
  *          02: Changed logNNotify() log level to, "info".
  *
  *      20180306
@@ -157,8 +151,8 @@
  *          01: Verify that a monitored contact remains open before allowing Energy Saver to pause the thermostat.
  *
  *      20180102
- *          01: tempHandler() will now check to ensure that Energy Saver states do not contradict the status of the
- *              contacts being monitored.
+ *          01: tempHandler() will now check to ensure that Energy Saver states do not contradict the status of the contacts being
+ *              monitored.
  *          02: Deleting a misplaced quotation mark.
  *
  *      20171218
@@ -169,23 +163,21 @@
  *          02: Turned setPoint enforcement into scheduled functions.
  *
  *      20171215
- *          01: Added capability to automatically set thermostat to "off" mode in the case that user selected contact
- *              sensors have remained open for longer than a user specified number of minutes.
+ *          01: Added capability to automatically set thermostat to "off" mode in the case that user selected contact sensors have remained
+ *              open for longer than a user specified number of minutes.
  *          02: Added ability to override Thermostat Manager by manually setting the thermostat to "off" mode.
  *          03: Added push notification capability.
  *          04: Modified logging behavior. Rearranged menus. General code cleanup.
- *          05: Added ability to disable Smart Home Monitor based setPoint enforcement without having to remove user
- *              defined values.
+ *          05: Added ability to disable Smart Home Monitor based setPoint enforcement without having to remove user defined values.
  *          06: Added ability to disable notifications without having to remove contacts.
  *          07: Missed a comma.
  *          08: Modifying notification messages.
  *          09: Converting tempHandler's event.value to integer.
- *          10: Returned to using thermostat.currentValue("temperature") instead of event.value.toInteger() for the
- *              currentTemp variable in the tempHandler() function.
+ *          10: Returned to using thermostat.currentValue("temperature") instead of event.value.toInteger() for the currentTemp variable in
+ *              the tempHandler() function.
  *
  *      20171213
- *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference
- *              settings.
+ *          01: Standardized optional Smart Home Monitor based setPoint enforcement with corresponding preference settings.
  *          02: Added notification capabilities.
  *          03: Renamed from, "Simple Thermostat Manager" to, "Thermostat Manager".
  *          04: Corrected an incorrect setPoint preference variable.
@@ -199,8 +191,7 @@
  *      20171210
  *          01: Corrected a mistake in the help paragraph.
  *          02: Reconfigured the placement of the help text.
- *          03: Added the ability to have Simple Thermostat Manager ignore a temperature threshold by manually setting
- *              it to 0.
+ *          03: Added the ability to have Simple Thermostat Manager ignore a temperature threshold by manually setting it to 0.
  *
  *      20171125
  *          01: Reverted system back to using user defined boundaries.
