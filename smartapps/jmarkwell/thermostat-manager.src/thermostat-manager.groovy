@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2019110606
+ *  Build 2020011402
  *
  *  Copyright 2019 Jordan Markwell
  *
@@ -15,6 +15,11 @@
  *
  *  ChangeLog:
  *      
+ *      20200114
+ *          01: Corrected an issue discovered by SmartThings Community member, gspitman, that causes a null pointer exception to be thrown
+ *              in the case that a user has not disabled Energy Saver but has not selected a contact to monitor either.
+ *          02: Minor code optimizations.
+ *
  *      20191106
  *          01: Added ability to use remote temperature sensor.
  *          02: contactOpenHandler() can no longer schedule openContactPause() while the thermostat is in a paused state.
@@ -689,7 +694,12 @@ def contactClosedHandler(event) {
 
 def esConflictResolver() { // Remember that state values are not changed until the application has finished running.
     // If all monitored contacts are currently closed.
-    if ( !disable && !disableEnergySaver && !contact.currentValue("contact").contains("open") ) {
+    if (
+            !disable && !disableEnergySaver && !contact?.currentValue("contact")?.contains("open") &&
+            // Don't waste time on this function if none of the following conditions are met.
+            (state.openContactReported || state.lastThermostatMode)
+    ) {
+        
         def nowTime = now()
         def pauseTime = state.pauseTime
         
@@ -755,10 +765,10 @@ def esConflictResolver() { // Remember that state values are not changed until t
 }
 
 def openContactPause() {
-    def thermostatMode = thermostat.currentValue("thermostatMode")
-    
-    if ( contact.currentValue("contact").contains("open") ) { // If any monitored contact is open.
-        state.lastThermostatMode = thermostat.currentValue("thermostatMode")
+    if ( contact?.currentValue("contact")?.contains("open") ) { // If any monitored contact is open.
+        def thermostatMode = thermostat.currentValue("thermostatMode")
+        
+        state.lastThermostatMode = thermostatMode
         logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
         
         if (minPauseMinutes) { state.pauseTime = now() + (60000 * minPauseMinutes) }
