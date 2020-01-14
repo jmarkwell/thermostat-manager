@@ -638,10 +638,11 @@ def verifyAndEnforce(inMap) {
 }
 
 def getSHMSetPoint(newMode) {
-    def securityStatus = location.currentValue("alarmSystemStatus")
     def setSetPoint = null
     
     if (!disableSHMSetPointEnforce) {
+        def securityStatus = location.currentValue("alarmSystemStatus")
+        
         if ( (newMode == "heat") || (newMode == "emergency heat") ) {
             if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
                 setSetPoint = offHeatingSetPoint
