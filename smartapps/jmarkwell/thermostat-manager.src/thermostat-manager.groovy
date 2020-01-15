@@ -696,7 +696,7 @@ def contactClosedHandler(event) {
 def esConflictResolver() { // Remember that state values are not changed until the application has finished running.
     // If all monitored contacts are currently closed.
     if (
-            !disable && !disableEnergySaver && !contact?.currentValue("contact")?.contains("open") &&
+            !disable && !disableEnergySaver && contact && !contact?.currentValue("contact")?.contains("open") &&
             // Don't waste time on this function if none of the following conditions are met.
             (state.openContactReported || state.lastThermostatMode)
     ) {
