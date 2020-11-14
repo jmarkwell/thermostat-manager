@@ -1,8 +1,8 @@
 /*
  *  Thermostat Manager
- *  Build 2020011402
+ *  Build 2020111401
  *
- *  Copyright 2019 Jordan Markwell
+ *  Copyright 2020 Jordan Markwell
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You
  *  may obtain a copy of the License at:
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20201114
+ *          01: Redesigned Smart Home Monitor based setPoint enforcement into mode based setPoint enforcement.
+ *
  *      20200114
  *          01: Corrected an issue discovered by SmartThings Community member, gspitman, that causes a null pointer exception to be thrown
  *              in the case that a user has not disabled Energy Saver but has not selected a contact to monitor either.
@@ -244,7 +247,6 @@ def mainPage() {
         }
         section("Tips") {
             paragraph "If you set the cooling threshold at the lowest setting you use in your modes and you set the heating threshold at the highest setting you use in your modes, you will not need to create multiple instances of Thermostat Manager."
-            // paragraph "If you want to use Thermostat Manager to set cooling mode only or to set heating mode only, remove the value for the threshold that you want to be ignored or set it to 0."
         }
         section("Optional Settings") {
             input name: "setFan", title: "Maintain Auto Fan Mode", type: "bool", defaultValue: true, required: true
@@ -252,38 +254,44 @@ def mainPage() {
             input name: "debug", title: "Debug Logging", type: "bool", defaultValue: false, required: true
             input name: "disable", title: "Disable Thermostat Manager", type: "bool", defaultValue: false, required: true
             
-            href "setPointPage", title: "Smart Home Monitor Based SetPoint Enforcement"
+            href "setPointPage", title: "Mode Based SetPoint Enforcement"
             href "energySaverPage", title: "Energy Saver"
             href "emergencyHeatPage", title: "Emergency Heat Settings"
             href "notificationPage", title: "Notification Settings"
             
             label(title: "Assign a name", required: false)
-            mode(title: "Set for specific mode(s)")
         }
     }
 }
 
 def setPointPage() {
-    dynamicPage(name: "setPointPage", title: "Smart Home Monitor Based SetPoint Enforcement") {
+    dynamicPage(name: "setPointPage", title: "Mode Based SetPoint Enforcement") {
         section() {
-            paragraph "These optional settings allow you use Thermostat Manager to set your thermostat's cooling and heating setPoints based on the status of Smart Home Monitor; SmartThings' built-in security system. SetPoints will be set only when a thermostat mode change occurs (e.g. heating to cooling) and only the setPoint for the incoming mode will be set (e.g. A change from heating mode to cooling mode would prompt the cooling setPoint to be set)."
+            paragraph "These optional settings allow you use Thermostat Manager to set your thermostat's cooling and heating setPoints based on your location's Hello Home mode. SetPoints will be set only when a thermostat mode change occurs (e.g. heating to cooling) and only the setPoint for the incoming mode will be set (e.g. A change from heating mode to cooling mode would prompt the cooling setPoint to be set)."
         }
-        section("Disarmed Status") {
+        section("Tips") {
+            paragraph "Each mode configuration must be unique. Do not select the same mode in multiple configurations."
+        }
+        section("Mode Configuration 1") {
+            input "modeConfig1", title: "Modes", "mode", multiple: true, required: false
             input name: "offHeatingSetPoint", title: "Heating SetPoint", type: "number", required: false
             input name: "offCoolingSetPoint", title: "Cooling SetPoint", type: "number", required: false
         }
-        section("Armed (stay) Status") {
+        section("Mode Configuration 2") {
+            input "modeConfig2", title: "Modes", "mode", multiple: true, required: false
             input name: "stayHeatingSetPoint", title: "Heating SetPoint", type: "number", required: false
             input name: "stayCoolingSetPoint", title: "Cooling SetPoint", type: "number", required: false
         }
-        section("Armed (away) Status") {
+        section("Mode Configuration 3") {
+            input "modeConfig3", title: "Modes", "mode", multiple: true, required: false
             input name: "awayHeatingSetPoint", title: "Heating SetPoint", type: "number", required: false
             input name: "awayCoolingSetPoint", title: "Cooling SetPoint", type: "number", required: false
         }
         section() {
+            input "armedModes", title: "Select all modes in which SmartThings Home Monitor is ARMED", "mode", multiple: true, required: true
             input name: "enforceArmedSetPoints", title: "Enforce SetPoints in Armed Statuses", type: "bool", defaultValue: false, required: true
             input name: "enforceSetPoints", title: "Always Enforce SetPoints", type: "bool", defaultValue: false, required: true
-            input name: "disableSHMSetPointEnforce", title: "Disable Smart Home Monitor Based SetPoint Enforcement", type: "bool", defaultValue: false, required: true
+            input name: "disableSHMSetPointEnforce", title: "Disable Mode Based SetPoint Enforcement", type: "bool", defaultValue: false, required: true
         }
     }
 }
@@ -365,7 +373,6 @@ def tempHandler(event) {
     def thermostatMode  = thermostat.currentValue("thermostatMode")
     def fanMode         = thermostat.currentValue("thermostatFanMode")
     def homeMode        = location.mode
-    def securityStatus  = location.currentValue("alarmSystemStatus")
     
     def SHMSetPoint = getSHMSetPoint(thermostatMode)
     
@@ -378,12 +385,11 @@ def tempHandler(event) {
             log.debug "Thermostat_Manager.tempHandler(): At least one contact is open: ${openContact}"
             if (state.lastThermostatMode) { log.debug "Thermostat_Manager.tempHandler(): Thermostat Manager is currently paused." }
         }
-        log.debug "Thermostat_Manager.tempHandler(): Smart Home Monitor Status: ${securityStatus}"
         log.debug "Thermostat_Manager.tempHandler(): Hello Home Mode: ${homeMode}"
         log.debug "Thermostat_Manager.tempHandler(): Fan Mode: ${fanMode}"
         log.debug "Thermostat_Manager.tempHandler(): Mode: ${thermostatMode}"
         log.debug "Thermostat_Manager.tempHandler(): Heating Threshold: ${heatingThreshold} | Cooling Threshold: ${coolingThreshold}"
-        if (SHMSetPoint) { log.debug "Thermostat_Manager.tempHandler(): Smart Home Monitor SetPoint: ${SHMSetPoint}" }
+        if (SHMSetPoint) { log.debug "Thermostat_Manager.tempHandler(): Mode Configuration SetPoint: ${SHMSetPoint}" }
         log.debug "Thermostat_Manager.tempHandler(): Heating Setpoint: ${heatingSetpoint} | Cooling Setpoint: ${coolingSetpoint}"
         log.debug "Thermostat_Manager.tempHandler(): Indoor Temperature: ${currentTemp}"
     }
@@ -460,7 +466,7 @@ def tempHandler(event) {
     }
     else if (   // if disableSHMSetPointEnforce is enabled, SHMSetPoint will be null.
                 !disable && SHMSetPoint &&
-                ( enforceSetPoints || ( enforceArmedSetPoints && ( (securityStatus == "stay") || (securityStatus == "away") ) ) ) &&
+                ( enforceSetPoints || ( enforceArmedSetPoints && armedModes.contains(location.mode) ) ) &&
                 (
                     ( ( (thermostatMode == "heat") || (thermostatMode == "emergency heat") ) && (heatingSetpoint != SHMSetPoint) ) ||
                     ( (thermostatMode == "cool") && (coolingSetpoint != SHMSetPoint) )
@@ -483,7 +489,6 @@ def outdoorTempHandler(event) {
     def thermostatMode      = thermostat.currentValue("thermostatMode")
     def fanMode             = thermostat.currentValue("thermostatFanMode")
     def homeMode            = location.mode
-    def securityStatus      = location.currentValue("alarmSystemStatus")
     
     def SHMSetPoint = getSHMSetPoint(thermostatMode)
     
@@ -496,12 +501,11 @@ def outdoorTempHandler(event) {
             log.debug "Thermostat_Manager.outdoorTempHandler(): At least one contact is open: ${openContact}"
             if (state.lastThermostatMode) { log.debug "Thermostat_Manager.outdoorTempHandler(): Thermostat Manager is currently paused." }
         }
-        log.debug "Thermostat_Manager.outdoorTempHandler(): Smart Home Monitor Status: ${securityStatus}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Hello Home Mode: ${homeMode}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Fan Mode: ${fanMode}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Mode: ${thermostatMode}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Heating Threshold: ${heatingThreshold} | Cooling Threshold: ${coolingThreshold}"
-        if (SHMSetPoint) { log.debug "Thermostat_Manager.outdoorTempHandler(): Smart Home Monitor SetPoint: ${SHMSetPoint}" }
+        if (SHMSetPoint) { log.debug "Thermostat_Manager.outdoorTempHandler(): Mode Configuration SetPoint: ${SHMSetPoint}" }
         log.debug "Thermostat_Manager.outdoorTempHandler(): Heating Setpoint: ${heatingSetpoint} | Cooling Setpoint: ${coolingSetpoint}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Outdoor Temperature: ${currentOutdoorTemp}"
         log.debug "Thermostat_Manager.outdoorTempHandler(): Indoor Temperature: ${currentTemp}"
@@ -587,7 +591,7 @@ def verifyAndEnforce(inMap) {
             state.ignoreOverride = false
         }
         
-        if (inMap.setPoint) { // If Smart Home Monitor based setPoint enforcement is in use.
+        if (inMap.setPoint) { // If mode based setPoint enforcement is in use.
             if ( ( (thermostatMode == "heat") || (thermostatMode == "emergency heat") ) && (thermostat.currentValue("heatingSetpoint") != inMap.setPoint) ) {
                 logNNotify("Thermostat Manager is setting the heating setPoint to ${inMap.setPoint}.")
                 thermostat.setHeatingSetpoint(inMap.setPoint)
@@ -641,27 +645,25 @@ def getSHMSetPoint(newMode) {
     def setSetPoint = null
     
     if (!disableSHMSetPointEnforce) {
-        def securityStatus = location.currentValue("alarmSystemStatus")
-        
         if ( (newMode == "heat") || (newMode == "emergency heat") ) {
-            if ( (securityStatus == "off") && (offHeatingSetPoint) ) {
+            if ( modeConfig1.contains(location.mode) && (offHeatingSetPoint) ) {
                 setSetPoint = offHeatingSetPoint
             }
-            else if ( (securityStatus == "stay") && (stayHeatingSetPoint) ) {
+            else if ( modeConfig2.contains(location.mode) && (stayHeatingSetPoint) ) {
                 setSetPoint = stayHeatingSetPoint
             }
-            else if ( (securityStatus == "away") && (awayHeatingSetPoint) ) {
+            else if ( modeConfig3.contains(location.mode) && (awayHeatingSetPoint) ) {
                 setSetPoint = awayHeatingSetPoint
             }
         }
         else if (newMode == "cool") {
-            if ( (securityStatus == "off") && (offCoolingSetPoint) ) {
+            if ( modeConfig1.contains(location.mode) && (offCoolingSetPoint) ) {
                 setSetPoint = offCoolingSetPoint
             }
-            else if ( (securityStatus == "stay") && (stayCoolingSetPoint) ) {
+            else if ( modeConfig2.contains(location.mode) && (stayCoolingSetPoint) ) {
                 setSetPoint = stayCoolingSetPoint
             }
-            else if ( (securityStatus == "away") && (awayCoolingSetPoint) ) {
+            else if ( modeConfig3.contains(location.mode) && (awayCoolingSetPoint) ) {
                 setSetPoint = awayCoolingSetPoint
             }
         }
