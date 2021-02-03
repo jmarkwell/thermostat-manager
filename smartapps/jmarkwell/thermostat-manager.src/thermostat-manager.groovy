@@ -16,8 +16,8 @@
  *  ChangeLog:
  *      
  *      20210202
- *          01: Selecting a capability.thermostat device is no longer a required preference item. Thanks to hsbarrett for pointing this
- *              out.
+ *          01: Selecting a capability.thermostat device is no longer a required preference item. Thanks to SmartThings Community member,
+ *              hsbarrett for pointing this out.
  *
  *      20210131
  *          01: Adding support for thermostats that do not have capability.thermostat. Special thanks to SmartThings Community member,
