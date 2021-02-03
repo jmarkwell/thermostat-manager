@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021013101
+ *  Build 2021020201
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,10 @@
  *
  *  ChangeLog:
  *      
+ *      20210202
+ *          01: Selecting a capability.thermostat device is no longer a required preference item. Thanks to hsbarrett for pointing this
+ *              out.
+ *
  *      20210131
  *          01: Adding support for thermostats that do not have capability.thermostat. Special thanks to SmartThings Community member,
  *              orangebucket for helping me iron out some of the kinks.
@@ -241,7 +245,7 @@ def mainPage() {
             paragraph "Automatically changes the thermostat mode in response to changes in temperature that exceed user defined thresholds."
         }
         section("Main Configuration") {
-            input "thermostat", "capability.thermostat", title: "Thermostat", multiple: false, required: true
+            input "thermostat", "capability.thermostat", title: "Thermostat", multiple: false, required: false
             paragraph "If you are unable to select your thermostat, try Alternative Thermostat Configuration."
             href "altThermostatConfig", title: "Alternative Thermostat Configuration"
             input "tempSensor", "capability.temperatureMeasurement", title: "Temperature Sensor", multiple: false, required: true
