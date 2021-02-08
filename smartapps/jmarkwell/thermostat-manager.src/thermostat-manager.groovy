@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021020201
+ *  Build 2021020704
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,12 @@
  *
  *  ChangeLog:
  *      
+ *      20210207
+ *          01: Improvements to the error handling of the new dual capability system.
+ *          02: Users will now be notified when Thermostat Manager fails to make an automated change due to a missing device capability.
+ *          03: openContactPause() will now only set state.lastThermostatMode on the first time run per pause.
+ *          04: Updates to code comments.
+ *
  *      20210202
  *          01: Selecting a capability.thermostat device is no longer a required preference item. Thanks to SmartThings Community member,
  *              hsbarrett for pointing this out.
@@ -22,9 +28,11 @@
  *      20210131
  *          01: Adding support for thermostats that do not have capability.thermostat. Special thanks to SmartThings Community member,
  *              orangebucket for helping me iron out some of the kinks.
+ *          02: Updates to code comments.
  *
  *      20201114
  *          01: Redesigned Smart Home Monitor based setPoint enforcement into mode based setPoint enforcement.
+ *          02: Updates to preference text and code comments.
  *
  *      20200114
  *          01: Corrected an issue discovered by SmartThings Community member, gspitman, that causes a null pointer exception to be thrown
@@ -489,7 +497,7 @@ def tempHandler(event) {
         def setSetPoint = getSHMSetPoint(newMode)
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: newMode, count: 1] ] )
     }
-    else if (   // if disableSHMSetPointEnforce is enabled, SHMSetPoint will be null.
+    else if (   // If disableSHMSetPointEnforce is enabled, or if the thermostat is (paused, or) in, "off" mode, SHMSetPoint will be null.
                 !disable && SHMSetPoint &&
                 ( enforceSetPoints || ( enforceArmedSetPoints && armedModes.contains(location.mode) ) ) &&
                 (
@@ -622,21 +630,11 @@ def verifyAndEnforce(inMap) {
             
             if ( ( (currentThermostatMode == "heat") || (currentThermostatMode == "emergency heat") ) && (heatingSetpoint != inMap.setPoint) ) {
                 logNNotify("Thermostat Manager is setting the heating setPoint to ${inMap.setPoint}.")
-                if (!useAltThermostatConfig) {
-                    thermostat.setHeatingSetpoint(inMap.setPoint)
-                }
-                else {
-                    thermostatHeatingSetpoint.setHeatingSetpoint(inMap.setPoint)
-                }
+                setHeatSetPoint(inMap.setPoint)
             }
             else if ( (currentThermostatMode == "cool") && (coolingSetpoint != inMap.setPoint) ) {
                 logNNotify("Thermostat Manager is setting the cooling setPoint to ${inMap.setPoint}.")
-                if (!useAltThermostatConfig) {
-                    thermostat.setCoolingSetpoint(inMap.setPoint)
-                }
-                else {
-                    thermostatCoolingSetpoint.setCoolingSetpoint(inMap.setPoint)
-                }
+                setCoolSetPoint(inMap.setPoint)
             }
             else if (debug) { // If setPoints do not need to be set.
                 log.debug "Thermostat_Manager.verifyAndEnforce(): Existing setPoints match user defined settings."
@@ -779,12 +777,11 @@ def openContactPause() {
     if ( contact?.currentValue("contact")?.contains("open") ) { // If any monitored contact is open.
         def currentThermostatMode = getThermostatMode()
         
-        state.lastThermostatMode = currentThermostatMode
-        logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
-        
+        if (!state.lastThermostatMode) { state.lastThermostatMode = currentThermostatMode }
         if (minPauseMinutes) { state.pauseTime = now() + (60000 * minPauseMinutes) }
         
         if (currentThermostatMode != "off") {
+            logNNotify("Thermostat Manager is turning the thermostat off temporarily due to an open contact.")
             setOffMode()
             runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: "off", count: 1] ] )
         }
@@ -828,10 +825,10 @@ def getSHMSetPoint(newMode) {
 def getThermostatMode() {
     def currentThermostatMode = null
     
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         currentThermostatMode = thermostat.currentValue("thermostatMode")
     }
-    else {
+    else if (useAltThermostatConfig && tstatMode) {
         currentThermostatMode = tstatMode.currentValue("thermostatMode")
     }
     
@@ -841,10 +838,10 @@ def getThermostatMode() {
 def getHeatingSetpoint() {
     def heatingSetpoint = null
     
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         heatingSetpoint = thermostat.currentValue("heatingSetpoint")
     }
-    else {
+    else if (useAltThermostatConfig && thermostatHeatingSetpoint) {
         heatingSetpoint = thermostatHeatingSetpoint.currentValue("heatingSetpoint")
     }
     
@@ -854,10 +851,10 @@ def getHeatingSetpoint() {
 def getCoolingSetpoint() {
     def coolingSetpoint = null
     
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         coolingSetpoint = thermostat.currentValue("coolingSetpoint")
     }
-    else {
+    else if (useAltThermostatConfig && thermostatCoolingSetpoint) {
         coolingSetpoint = thermostatCoolingSetpoint.currentValue("coolingSetpoint")
     }
     
@@ -867,10 +864,10 @@ def getCoolingSetpoint() {
 def getFanMode() {
     def fanMode = null
     
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         fanMode = thermostat.currentValue("thermostatFanMode")
     }
-    else {
+    else if (useAltThermostatConfig && thermostatFanMode) {
         fanMode = thermostatFanMode.currentValue("thermostatFanMode")
     }
     
@@ -878,55 +875,97 @@ def getFanMode() {
 }
 
 def setHeatMode() {
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         thermostat.heat()
     }
-    else {
+    else if (useAltThermostatConfig && tstatMode) {
         tstatMode.heat()
+    }
+    else {
+        logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
     }
 }
 
 def setCoolMode() {
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         thermostat.cool()
     }
-    else {
+    else if (useAltThermostatConfig && tstatMode) {
         tstatMode.cool()
+    }
+    else {
+        logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
     }
 }
 
 def setEmergencyHeatMode() {
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         thermostat.emergencyHeat()
     }
-    else {
+    else if (useAltThermostatConfig && tstatMode) {
         tstatMode.emergencyHeat()
+    }
+    else {
+        logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
     }
 }
 
 def setAutoMode() {
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         thermostat.auto()
     }
-    else {
+    else if (useAltThermostatConfig && tstatMode) {
         tstatMode.auto()
+    }
+    else {
+        logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
     }
 }
 
 def setOffMode() {
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         thermostat.off()
     }
-    else {
+    else if (useAltThermostatConfig && tstatMode) {
         tstatMode.off()
+    }
+    else {
+        logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
+    }
+}
+
+def setHeatSetPoint(setPoint) {
+    if (!useAltThermostatConfig && thermostat) {
+        thermostat.setHeatingSetpoint(setPoint)
+    }
+    else if (useAltThermostatConfig && thermostatHeatingSetpoint) {
+        thermostatHeatingSetpoint.setHeatingSetpoint(setPoint)
+    }
+    else {
+        logNNotify("Thermostat Manager - Cannot set heating setPoint. No thermostat or thermostatHeatingSetpoint devices have been configured. Select one or disable \"Mode Based SetPoint Enforcement\".")
+    }
+}
+
+def setCoolSetPoint(setPoint) {
+    if (!useAltThermostatConfig && thermostat) {
+        thermostat.setCoolingSetpoint(setPoint)
+    }
+    else if (useAltThermostatConfig && thermostatCoolingSetpoint) {
+        thermostatCoolingSetpoint.setCoolingSetpoint(setPoint)
+    }
+    else {
+        logNNotify("Thermostat Manager - Cannot set cooling setPoint. No thermostat or thermostatCoolingSetpoint devices have been configured. Select one or disable \"Mode Based SetPoint Enforcement\".")
     }
 }
 
 def setFanAuto() {
-    if (!useAltThermostatConfig) {
+    if (!useAltThermostatConfig && thermostat) {
         thermostat.fanAuto()
     }
-    else {
+    else if (useAltThermostatConfig && thermostatFanMode) {
         thermostatFanMode.fanAuto()
+    }
+    else {
+        logNNotify("Thermostat Manager - Cannot set fan mode. No thermostat or thermostatFanMode devices have been configured. Select one or disable \"Maintain Auto Fan Mode\".")
     }
 }
