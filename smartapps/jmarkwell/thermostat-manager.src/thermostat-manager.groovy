@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021020704
+ *  Build 2021021801
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,10 @@
  *
  *  ChangeLog:
  *      
+ *      20210218
+ *          01: Discovered that Zen Thermostat's device handler doesn't have the emergencyHeat() command. Revised set commands to use
+ *              parameter based setThermostatMode() and setThermostatFanMode() instead.
+ *
  *      20210207
  *          01: Improvements to the error handling of the new dual capability system.
  *          02: Users will now be notified when Thermostat Manager fails to make an automated change due to a missing device capability.
@@ -876,10 +880,10 @@ def getFanMode() {
 
 def setHeatMode() {
     if (!useAltThermostatConfig && thermostat) {
-        thermostat.heat()
+        thermostat.setThermostatMode("heat")
     }
     else if (useAltThermostatConfig && tstatMode) {
-        tstatMode.heat()
+        tstatMode.setThermostatMode("heat")
     }
     else {
         logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
@@ -888,10 +892,10 @@ def setHeatMode() {
 
 def setCoolMode() {
     if (!useAltThermostatConfig && thermostat) {
-        thermostat.cool()
+        thermostat.setThermostatMode("cool")
     }
     else if (useAltThermostatConfig && tstatMode) {
-        tstatMode.cool()
+        tstatMode.setThermostatMode("cool")
     }
     else {
         logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
@@ -900,10 +904,10 @@ def setCoolMode() {
 
 def setEmergencyHeatMode() {
     if (!useAltThermostatConfig && thermostat) {
-        thermostat.emergencyHeat()
+        thermostat.setThermostatMode("emergency heat")
     }
     else if (useAltThermostatConfig && tstatMode) {
-        tstatMode.emergencyHeat()
+        tstatMode.setThermostatMode("emergency heat")
     }
     else {
         logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
@@ -912,10 +916,10 @@ def setEmergencyHeatMode() {
 
 def setAutoMode() {
     if (!useAltThermostatConfig && thermostat) {
-        thermostat.auto()
+        thermostat.setThermostatMode("auto")
     }
     else if (useAltThermostatConfig && tstatMode) {
-        tstatMode.auto()
+        tstatMode.setThermostatMode("auto")
     }
     else {
         logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
@@ -924,10 +928,10 @@ def setAutoMode() {
 
 def setOffMode() {
     if (!useAltThermostatConfig && thermostat) {
-        thermostat.off()
+        thermostat.setThermostatMode("off")
     }
     else if (useAltThermostatConfig && tstatMode) {
-        tstatMode.off()
+        tstatMode.setThermostatMode("off")
     }
     else {
         logNNotify("Thermostat Manager - Cannot set thermostat mode. No thermostat or thermostatMode devices have been configured.")
@@ -960,10 +964,10 @@ def setCoolSetPoint(setPoint) {
 
 def setFanAuto() {
     if (!useAltThermostatConfig && thermostat) {
-        thermostat.fanAuto()
+        thermostat.setThermostatFanMode("auto")
     }
     else if (useAltThermostatConfig && thermostatFanMode) {
-        thermostatFanMode.fanAuto()
+        thermostatFanMode.setThermostatFanMode("auto")
     }
     else {
         logNNotify("Thermostat Manager - Cannot set fan mode. No thermostat or thermostatFanMode devices have been configured. Select one or disable \"Maintain Auto Fan Mode\".")
