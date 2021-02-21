@@ -18,7 +18,7 @@
  *      20210221
  *          01: tempHandler() will no longer set "heat" or "off" mode in the case that Externally Controlled Emergency Heat is enabled and
  *              the currentOutdoorTemp is below the emergencyHeatThreshold.
- *          02: "off" mode can no longer be condintionally set when the currentTemp reaches the heatingThreshold in "emergency heat" mode.
+ *          02: "off" mode can no longer be conditionally set when the currentTemp reaches the heatingThreshold in "emergency heat" mode.
  *          03: Added currentOutdoorTemp to tempHandler() debug logging.
  *          04: Updates to code comments.
  *
