@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021021801
+ *  Build 2021022104
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,13 @@
  *
  *  ChangeLog:
  *      
+ *      20210221
+ *          01: tempHandler() will no longer set "heat" or "off" mode in the case that Externally Controlled Emergency Heat is enabled and
+ *              the currentOutdoorTemp is below the emergencyHeatThreshold.
+ *          02: "off" mode can no longer be condintionally set when the currentTemp reaches the heatingThreshold in "emergency heat" mode.
+ *          03: Added currentOutdoorTemp to tempHandler() debug logging.
+ *          04: Updates to code comments.
+ *
  *      20210218
  *          01: Discovered that Zen Thermostat's device handler doesn't have the emergencyHeat() command. Revised set commands to use
  *              parameter based setThermostatMode() and setThermostatFanMode() instead.
@@ -405,6 +412,7 @@ def initialize() {
 def tempHandler(event) {
     def openContact             = contact?.currentValue("contact")?.contains("open")
     def currentTemp             = Math.round( tempSensor.currentValue("temperature") )
+    def currentOutdoorTemp      = Math.round( outdoorTempSensor?.currentValue("temperature") )
     def heatingSetpoint         = getHeatingSetpoint()
     def coolingSetpoint         = getCoolingSetpoint()
     def currentThermostatMode   = getThermostatMode()
@@ -428,6 +436,7 @@ def tempHandler(event) {
         log.debug "Thermostat_Manager.tempHandler(): Heating Threshold: ${heatingThreshold} | Cooling Threshold: ${coolingThreshold}"
         if (SHMSetPoint) { log.debug "Thermostat_Manager.tempHandler(): Mode Configuration SetPoint: ${SHMSetPoint}" }
         log.debug "Thermostat_Manager.tempHandler(): Heating Setpoint: ${heatingSetpoint} | Cooling Setpoint: ${coolingSetpoint}"
+        if (currentOutdoorTemp) { log.debug "Thermostat_Manager.tempHandler(): Outdoor Temperature: ${currentOutdoorTemp}" }
         log.debug "Thermostat_Manager.tempHandler(): Indoor Temperature: ${currentTemp}"
     }
    
@@ -479,27 +488,23 @@ def tempHandler(event) {
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "emergency heat", count: 1] ] )
     }
     else if (
-                !disable &&
+                !disable && !disableHeat &&
                 // If the thermostat is in, "emergency heat" mode, then it can't be (paused, or) in, "off" mode.
-                (currentThermostatMode == "emergency heat") &&
-                // If either the temperature is between the heating and cooling thresholds or cool mode is disabled.
+                !useEmergencyHeat && (currentThermostatMode == "emergency heat") &&
+                // Either cool mode is disabled or the temperature is between the heating and cooling thresholds.
                 ( (!coolingThreshold || disableCool) || ( coolingThreshold && (currentTemp < coolingThreshold) ) ) &&
-                heatingThreshold && (currentTemp > heatingThreshold)
+                heatingThreshold && (currentTemp > heatingThreshold) &&
+                (   // Either Externally Controlled Emergency Heat is disabled or the outdoor temperature is above the emergencyHeatThreshold.
+                    disableExtEmergencyHeat ||
+                    ( !disableExtEmergencyHeat && (currentOutdoorTemp && emergencyHeatThreshold && (currentOutdoorTemp > emergencyHeatThreshold) ) )
+                )
     ) {
         
-        def newMode = "heat"
-        if (disableHeat) {
-            newMode = "off"
-            state.ignoreOverride = true
-            logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting off mode.")
-            setOffMode()
-        } else {
-            logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting heat mode.")
-            setHeatMode()
-        }
+        logNNotify("Thermostat Manager - The temperature has risen to ${currentTemp}. Setting heat mode.")
+        setHeatMode()
         
-        def setSetPoint = getSHMSetPoint(newMode)
-        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: newMode, count: 1] ] )
+        def setSetPoint = getSHMSetPoint("heat")
+        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "heat", count: 1] ] )
     }
     else if (   // If disableSHMSetPointEnforce is enabled, or if the thermostat is (paused, or) in, "off" mode, SHMSetPoint will be null.
                 !disable && SHMSetPoint &&
@@ -570,27 +575,21 @@ def outdoorTempHandler(event) {
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "emergency heat", count: 1] ] )
     }
     else if (
-                !disable && !useEmergencyHeat && !disableExtEmergencyHeat &&
+                !disable && !disableExtEmergencyHeat && !disableHeat &&
                 // If the thermostat is in, "emergency heat" mode, then it can't be (paused, or) in, "off" mode.
-                (currentThermostatMode == "emergency heat") &&
-                // If the outdoor temperature rises above the emergencyHeatThreshold but the indoor temperature stays below the heatingThreshold.
-                ( !heatingThreshold || (heatingThreshold && (currentTemp < heatingThreshold) ) ) &&
+                !useEmergencyHeat && (currentThermostatMode == "emergency heat") &&
+                // Either cool mode is disabled or the temperature is between the heating and cooling thresholds.
+                ( (!coolingThreshold || disableCool) || ( coolingThreshold && (currentTemp < coolingThreshold) ) ) &&
+                (heatingThreshold && (currentTemp < heatingThreshold) ) &&
+                // If the outdoor temperature rises above the emergencyHeatThreshold.
                 emergencyHeatThreshold && (currentOutdoorTemp > emergencyHeatThreshold)
     ) {
         
-        def newMode = "heat"
-        if (!heatingThreshold || disableHeat) {
-            newMode = "off"
-            state.ignoreOverride = true
-            logNNotify("Thermostat Manager - Outdoor temperature has risen to ${currentOutdoorTemp}. Setting off mode.")
-            setOffMode()
-        } else {
-            logNNotify("Thermostat Manager - Outdoor temperature has risen to ${currentOutdoorTemp}. Setting heat mode.")
-            setHeatMode()
-        }
+        logNNotify("Thermostat Manager - Outdoor temperature has risen to ${currentOutdoorTemp}. Setting heat mode.")
+        setHeatMode()
         
-        def setSetPoint = getSHMSetPoint(newMode)
-        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: newMode, count: 1] ] )
+        def setSetPoint = getSHMSetPoint("heat")
+        runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "heat", count: 1] ] )
     }
     else if (debug) {
         log.debug "Thermostat_Manager.outdoorTempHandler(): Thermostat Manager standing by."
