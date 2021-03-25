@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021022104
+ *  Build 2021032502
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,13 @@
  *
  *  ChangeLog:
  *      
+ *      20210325
+ *          01: Variables, currentTemp and currentOutdoorTemp will now be converted to BigDecimal before being rounded. Thanks to
+ *              SmartThings Community member, gsgentry for submitting logs showing that Honeywell Total Connect WiFi thermostats report
+ *              temperature values as strings.
+ *          02: Selecting armedModes values on the Mode Based SetPoint Enforcement page is no longer required. Not everyone uses
+ *              SmartThings Home Monitor.
+ *
  *      20210221
  *          01: tempHandler() will no longer set "heat" or "off" mode in the case that Externally Controlled Emergency Heat is enabled and
  *              the currentOutdoorTemp is below the emergencyHeatThreshold.
@@ -332,7 +339,7 @@ def setPointPage() {
             input name: "awayCoolingSetPoint", title: "Cooling SetPoint", type: "number", required: false
         }
         section() {
-            input "armedModes", title: "Select all modes in which SmartThings Home Monitor is ARMED", "mode", multiple: true, required: true
+            input "armedModes", title: "Select all modes in which SmartThings Home Monitor is ARMED", "mode", multiple: true, required: false
             input name: "enforceArmedSetPoints", title: "Enforce SetPoints in Armed Statuses", type: "bool", defaultValue: false, required: true
             input name: "enforceSetPoints", title: "Always Enforce SetPoints", type: "bool", defaultValue: false, required: true
             input name: "disableSHMSetPointEnforce", title: "Disable Mode Based SetPoint Enforcement", type: "bool", defaultValue: false, required: true
@@ -411,8 +418,8 @@ def initialize() {
 
 def tempHandler(event) {
     def openContact             = contact?.currentValue("contact")?.contains("open")
-    def currentTemp             = Math.round( tempSensor.currentValue("temperature") )
-    def currentOutdoorTemp      = Math.round( outdoorTempSensor?.currentValue("temperature") )
+    def currentTemp             = Math.round( BigDecimal.valueOf( tempSensor.currentValue("temperature") ) )
+    def currentOutdoorTemp      = Math.round( BigDecimal.valueOf( outdoorTempSensor?.currentValue("temperature") ) )
     def heatingSetpoint         = getHeatingSetpoint()
     def coolingSetpoint         = getCoolingSetpoint()
     def currentThermostatMode   = getThermostatMode()
@@ -508,7 +515,7 @@ def tempHandler(event) {
     }
     else if (   // If disableSHMSetPointEnforce is enabled, or if the thermostat is (paused, or) in, "off" mode, SHMSetPoint will be null.
                 !disable && SHMSetPoint &&
-                ( enforceSetPoints || ( enforceArmedSetPoints && armedModes.contains(location.mode) ) ) &&
+                ( enforceSetPoints || ( enforceArmedSetPoints && armedModes?.contains(location.mode) ) ) &&
                 (
                     ( ( (currentThermostatMode == "heat") || (currentThermostatMode == "emergency heat") ) && (heatingSetpoint != SHMSetPoint) ) ||
                     ( (currentThermostatMode == "cool") && (coolingSetpoint != SHMSetPoint) )
@@ -524,8 +531,8 @@ def tempHandler(event) {
 
 def outdoorTempHandler(event) {
     def openContact             = contact?.currentValue("contact")?.contains("open")
-    def currentTemp             = Math.round( tempSensor.currentValue("temperature") )
-    def currentOutdoorTemp      = Math.round( outdoorTempSensor.currentValue("temperature") )
+    def currentTemp             = Math.round( BigDecimal.valueOf( tempSensor.currentValue("temperature") ) )
+    def currentOutdoorTemp      = Math.round( BigDecimal.valueOf( outdoorTempSensor.currentValue("temperature") ) )
     def heatingSetpoint         = getHeatingSetpoint()
     def coolingSetpoint         = getCoolingSetpoint()
     def currentThermostatMode   = getThermostatMode()
