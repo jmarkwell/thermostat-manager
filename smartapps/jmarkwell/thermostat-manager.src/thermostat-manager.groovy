@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021032502
+ *  Build 2021032601
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,9 @@
  *
  *  ChangeLog:
  *      
+ *      20210326
+ *          01: Correction to the method used to convert currentTemp and currentOutdoorTemp variables to BigDecimal.
+ *
  *      20210325
  *          01: Variables, currentTemp and currentOutdoorTemp will now be converted to BigDecimal before being rounded. Thanks to
  *              SmartThings Community member, gsgentry for submitting logs showing that Honeywell Total Connect WiFi thermostats report
@@ -418,8 +421,8 @@ def initialize() {
 
 def tempHandler(event) {
     def openContact             = contact?.currentValue("contact")?.contains("open")
-    def currentTemp             = Math.round( BigDecimal.valueOf( tempSensor.currentValue("temperature") ) )
-    def currentOutdoorTemp      = Math.round( BigDecimal.valueOf( outdoorTempSensor?.currentValue("temperature") ) )
+    def currentTemp             = Math.round( new BigDecimal( tempSensor.currentValue("temperature").toString() ) )
+    def currentOutdoorTemp      = Math.round( new BigDecimal( outdoorTempSensor?.currentValue("temperature").toString() ) )
     def heatingSetpoint         = getHeatingSetpoint()
     def coolingSetpoint         = getCoolingSetpoint()
     def currentThermostatMode   = getThermostatMode()
@@ -531,8 +534,8 @@ def tempHandler(event) {
 
 def outdoorTempHandler(event) {
     def openContact             = contact?.currentValue("contact")?.contains("open")
-    def currentTemp             = Math.round( BigDecimal.valueOf( tempSensor.currentValue("temperature") ) )
-    def currentOutdoorTemp      = Math.round( BigDecimal.valueOf( outdoorTempSensor.currentValue("temperature") ) )
+    def currentTemp             = Math.round( new BigDecimal( tempSensor.currentValue("temperature").toString() ) )
+    def currentOutdoorTemp      = Math.round( new BigDecimal( outdoorTempSensor.currentValue("temperature").toString() ) )
     def heatingSetpoint         = getHeatingSetpoint()
     def coolingSetpoint         = getCoolingSetpoint()
     def currentThermostatMode   = getThermostatMode()
