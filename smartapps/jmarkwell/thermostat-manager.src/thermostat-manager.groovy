@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021032601
+ *  Build 2021032701
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,7 +15,7 @@
  *
  *  ChangeLog:
  *      
- *      20210326
+ *      20210327
  *          01: Correction to the method used to convert currentTemp and currentOutdoorTemp variables to BigDecimal.
  *
  *      20210325
@@ -422,7 +422,7 @@ def initialize() {
 def tempHandler(event) {
     def openContact             = contact?.currentValue("contact")?.contains("open")
     def currentTemp             = Math.round( new BigDecimal( tempSensor.currentValue("temperature").toString() ) )
-    def currentOutdoorTemp      = Math.round( new BigDecimal( outdoorTempSensor?.currentValue("temperature").toString() ) )
+    def currentOutdoorTemp      = Math.round( new BigDecimal( outdoorTempSensor?.currentValue("temperature")?.toString() ) )
     def heatingSetpoint         = getHeatingSetpoint()
     def coolingSetpoint         = getCoolingSetpoint()
     def currentThermostatMode   = getThermostatMode()
