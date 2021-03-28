@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021032701
+ *  Build 2021032801
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,10 @@
  *
  *  ChangeLog:
  *      
+ *      20210328
+ *          01: The value of the currentOutdoorTemp variable will now be correctly reported as null in the case that an outdoor temperature
+ *              sensor has not been selected. Thanks to SmartThings Community member, gsgentry for reporting this issue.
+ *
  *      20210327
  *          01: Correction to the method used to convert currentTemp and currentOutdoorTemp variables to BigDecimal.
  *
@@ -422,7 +426,7 @@ def initialize() {
 def tempHandler(event) {
     def openContact             = contact?.currentValue("contact")?.contains("open")
     def currentTemp             = Math.round( new BigDecimal( tempSensor.currentValue("temperature").toString() ) )
-    def currentOutdoorTemp      = Math.round( new BigDecimal( outdoorTempSensor?.currentValue("temperature")?.toString() ) )
+    def currentOutdoorTemp      = outdoorTempSensor?.currentValue("temperature") ? Math.round( new BigDecimal( outdoorTempSensor?.currentValue("temperature")?.toString() ) ) : null
     def heatingSetpoint         = getHeatingSetpoint()
     def coolingSetpoint         = getCoolingSetpoint()
     def currentThermostatMode   = getThermostatMode()
