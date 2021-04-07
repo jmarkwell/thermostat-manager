@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021032801
+ *  Build 2021040603
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,13 @@
  *
  *  ChangeLog:
  *      
+ *      20210406
+ *          01: getSHMSetPoint() will now account for null modeConfig values. Thanks to SmartThings Community member, gsgentry for
+ *              reporting this issue.
+ *          02: disableSHMSetPointEnforce has been renamed to enableSHMSetPointEnforce and Mode Based SetPoint Enforcement will now be
+ *              disabled by default.
+ *          03: Updates to code comments.
+ *
  *      20210328
  *          01: The value of the currentOutdoorTemp variable will now be correctly reported as null in the case that an outdoor temperature
  *              sensor has not been selected. Thanks to SmartThings Community member, gsgentry for reporting this issue.
@@ -349,7 +356,7 @@ def setPointPage() {
             input "armedModes", title: "Select all modes in which SmartThings Home Monitor is ARMED", "mode", multiple: true, required: false
             input name: "enforceArmedSetPoints", title: "Enforce SetPoints in Armed Statuses", type: "bool", defaultValue: false, required: true
             input name: "enforceSetPoints", title: "Always Enforce SetPoints", type: "bool", defaultValue: false, required: true
-            input name: "disableSHMSetPointEnforce", title: "Disable Mode Based SetPoint Enforcement", type: "bool", defaultValue: false, required: true
+            input name: "enableSHMSetPointEnforce", title: "Enable Mode Based SetPoint Enforcement", type: "bool", defaultValue: false, required: true
         }
     }
 }
@@ -520,7 +527,7 @@ def tempHandler(event) {
         def setSetPoint = getSHMSetPoint("heat")
         runIn( 60, verifyAndEnforce, [data: [setPoint: setSetPoint, mode: "heat", count: 1] ] )
     }
-    else if (   // If disableSHMSetPointEnforce is enabled, or if the thermostat is (paused, or) in, "off" mode, SHMSetPoint will be null.
+    else if (   // If Mode Based SetPoint Enforcement is disabled, or if the thermostat is (paused, or) in, "off" mode, SHMSetPoint will be null.
                 !disable && SHMSetPoint &&
                 ( enforceSetPoints || ( enforceArmedSetPoints && armedModes?.contains(location.mode) ) ) &&
                 (
@@ -811,26 +818,26 @@ def openContactPause() {
 def getSHMSetPoint(newMode) {
     def setSetPoint = null
     
-    if (!disableSHMSetPointEnforce) {
+    if (enableSHMSetPointEnforce) {
         if ( (newMode == "heat") || (newMode == "emergency heat") ) {
-            if ( modeConfig1.contains(location.mode) && (offHeatingSetPoint) ) {
+            if ( modeConfig1?.contains(location.mode) && (offHeatingSetPoint) ) {
                 setSetPoint = offHeatingSetPoint
             }
-            else if ( modeConfig2.contains(location.mode) && (stayHeatingSetPoint) ) {
+            else if ( modeConfig2?.contains(location.mode) && (stayHeatingSetPoint) ) {
                 setSetPoint = stayHeatingSetPoint
             }
-            else if ( modeConfig3.contains(location.mode) && (awayHeatingSetPoint) ) {
+            else if ( modeConfig3?.contains(location.mode) && (awayHeatingSetPoint) ) {
                 setSetPoint = awayHeatingSetPoint
             }
         }
         else if (newMode == "cool") {
-            if ( modeConfig1.contains(location.mode) && (offCoolingSetPoint) ) {
+            if ( modeConfig1?.contains(location.mode) && (offCoolingSetPoint) ) {
                 setSetPoint = offCoolingSetPoint
             }
-            else if ( modeConfig2.contains(location.mode) && (stayCoolingSetPoint) ) {
+            else if ( modeConfig2?.contains(location.mode) && (stayCoolingSetPoint) ) {
                 setSetPoint = stayCoolingSetPoint
             }
-            else if ( modeConfig3.contains(location.mode) && (awayCoolingSetPoint) ) {
+            else if ( modeConfig3?.contains(location.mode) && (awayCoolingSetPoint) ) {
                 setSetPoint = awayCoolingSetPoint
             }
         }
