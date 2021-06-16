@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021040603
+ *  Build 2021061504
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,13 @@
  *
  *  ChangeLog:
  *      
+ *      20210615
+ *          01: Adding capability to enforce Energy Saver pauses. This feature was requested by SmartThings Community member gsgentry.
+ *          02: Removing the no longer used ignoreOverride state variable and the code that references it.
+ *          03: Modifying conditions on the verifyAndEnforce() function's mode enforcement operations in order to allow for proper
+ *              enforcement of "off" mode.
+ *          04: Added a help tip to the Energy Saver configuration page.
+ *
  *      20210406
  *          01: getSHMSetPoint() will now account for null modeConfig values. Thanks to SmartThings Community member, gsgentry for
  *              reporting this issue.
@@ -382,11 +389,13 @@ def energySaverPage() {
             input name: "contact", title: "Contact Sensors", type: "capability.contactSensor", multiple: true, required: false
             paragraph "Open Contact Time must be set to a value of 1 or greater."
             input name: "openContactMinutes", title: "Open Contact Time (minutes)", type: "number", defaultValue: 2, required: false
+            paragraph "Setting Minimum Pause time to a value less than 2 may result in unexpected behavior."
             input name: "minPauseMinutes", title: "Minimum Pause Time (minutes)", type: "number", defaultValue: 2, required: false
             paragraph "If Hold-After Time is specified/non-zero, once the thermostat enters a paused state it will remain paused for the specified number of minutes after all selected contacts have been closed."
             input name: "holdAfterMinutes", title: "Hold-After Time (minutes)", type: "number", defaultValue: 2, required: false
         }
         section() {
+            input name: "enforcePause", title: "Enable Energy Saver Pause Enforcement", type: "bool", defaultValue: false, required: true
             input name: "disableEnergySaver", title: "Disable Energy Saver", type: "bool", defaultValue: false, required: true
         }
     }
@@ -469,7 +478,7 @@ def tempHandler(event) {
     if (
                 !disable && !disableHeat &&
                 (disableEnergySaver || !state.lastThermostatMode) &&
-                ( !manualOverride || ( manualOverride && ( (currentThermostatMode != "off") || state.ignoreOverride ) ) ) &&
+                ( !manualOverride || ( manualOverride && (currentThermostatMode != "off") ) ) &&
                 !useEmergencyHeat && (currentThermostatMode != "heat") && (currentThermostatMode != "emergency heat") &&
                 heatingThreshold && (currentTemp < heatingThreshold)
     ) {
@@ -483,7 +492,7 @@ def tempHandler(event) {
     else if (
                 !disable && !disableCool &&
                 (disableEnergySaver || !state.lastThermostatMode) &&
-                ( !manualOverride || ( manualOverride && ( (currentThermostatMode != "off") || state.ignoreOverride ) ) ) &&
+                ( !manualOverride || ( manualOverride && (currentThermostatMode != "off") ) ) &&
                 (currentThermostatMode != "cool") &&
                 coolingThreshold && (currentTemp > coolingThreshold)
     ) {
@@ -497,7 +506,7 @@ def tempHandler(event) {
     else if (
                 !disable &&
                 (disableEnergySaver || !state.lastThermostatMode) &&
-                ( !manualOverride || ( manualOverride && ( (currentThermostatMode != "off") || state.ignoreOverride ) ) ) &&
+                ( !manualOverride || ( manualOverride && (currentThermostatMode != "off") ) ) &&
                 useEmergencyHeat && (currentThermostatMode != "emergency heat") &&
                 heatingThreshold && (currentTemp < heatingThreshold)
     ) {
@@ -537,6 +546,18 @@ def tempHandler(event) {
     ) {
         
         runIn( 60, verifyAndEnforce, [data: [setPoint: SHMSetPoint, mode: currentThermostatMode, count: 1] ] )
+    }
+    else if (   // Energy Saver Pause Enforcement
+                !disable &&
+                (!disableEnergySaver && state.lastThermostatMode) &&
+                ( enforcePause && (currentThermostatMode != "off") )
+    ) {
+        
+        logNNotify("Thermostat Manager - Thermostat mode has been changed during an Energy Saver pause. Setting off mode.")
+        setOffMode()
+        
+        // def reRunTime = Math.round( ( ( state.pauseTime + 1000) - now() ) / 1000 )
+        // if (reRunTime > 60) { runIn( 60, verifyAndEnforce, [data: [setPoint: null, mode: "off", count: 1] ] ) }
     }
     else if (debug) {
         log.debug "Thermostat_Manager.tempHandler(): Thermostat Manager standing by."
@@ -582,7 +603,7 @@ def outdoorTempHandler(event) {
     if (
             !disable && !disableExtEmergencyHeat &&
             (disableEnergySaver || !state.lastThermostatMode) &&
-            ( !manualOverride || ( manualOverride && ( (currentThermostatMode != "off") || state.ignoreOverride ) ) ) &&
+            ( !manualOverride || ( manualOverride && (currentThermostatMode != "off") ) ) &&
             (currentThermostatMode != "emergency heat") &&
             // If the indoor temperature is below the heatingThreshold and the outdoor temperature falls below the emergencyHeatThreshold.
             ( !heatingThreshold || (heatingThreshold && (currentTemp < heatingThreshold) ) ) &&
@@ -644,10 +665,6 @@ def verifyAndEnforce(inMap) {
             log.debug "Thermostat_Manager.verifyAndEnforce(): Thermostat has successfully entered ${inMap.mode} mode. (${inMap.count}/3)"
         }
         
-        if ( (currentThermostatMode == "heat") || (currentThermostatMode == "cool") ) {
-            state.ignoreOverride = false
-        }
-        
         if (inMap.setPoint) { // If mode based setPoint enforcement is in use.
             def heatingSetpoint = getHeatingSetpoint()
             def coolingSetpoint = getCoolingSetpoint()
@@ -667,8 +684,8 @@ def verifyAndEnforce(inMap) {
     }
     else if (   // If the thermostat has failed to change over to the requested mode and has not been subsequently paused or otherwise disabled.
                 !disable &&
-                (disableEnergySaver || !state.lastThermostatMode) &&
-                ( !manualOverride || ( manualOverride && ( (currentThermostatMode != "off") || state.ignoreOverride ) ) )
+                (disableEnergySaver || !state.lastThermostatMode || (state.lastThermostatMode && (currentThermostatMode != "off") && (inMap.mode == "off") ) ) &&
+                ( !manualOverride || ( manualOverride && (currentThermostatMode != "off") ) )
     ) {
         
         if (inMap.count <= 3) { // Retry 2 times for a maximum of 3 total tries.
