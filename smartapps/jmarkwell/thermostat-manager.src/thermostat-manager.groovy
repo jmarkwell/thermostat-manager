@@ -1,6 +1,6 @@
 /*
  *  Thermostat Manager
- *  Build 2021061504
+ *  Build 2021061601
  *
  *  Copyright 2021 Jordan Markwell
  *
@@ -15,6 +15,10 @@
  *
  *  ChangeLog:
  *      
+ *      20210616
+ *          01: Modifying conditions on the verifyAndEnforce() function's mode enforcement operations in order to allow for proper
+ *              enforcement when exiting the Energy Saver pause state.
+ *
  *      20210615
  *          01: Adding capability to enforce Energy Saver pauses. This feature was requested by SmartThings Community member gsgentry.
  *          02: Removing the no longer used ignoreOverride state variable and the code that references it.
@@ -684,8 +688,7 @@ def verifyAndEnforce(inMap) {
     }
     else if (   // If the thermostat has failed to change over to the requested mode and has not been subsequently paused or otherwise disabled.
                 !disable &&
-                (disableEnergySaver || !state.lastThermostatMode || (state.lastThermostatMode && (currentThermostatMode != "off") && (inMap.mode == "off") ) ) &&
-                ( !manualOverride || ( manualOverride && (currentThermostatMode != "off") ) )
+                (disableEnergySaver || !state.lastThermostatMode || (state.lastThermostatMode && (currentThermostatMode != "off") && (inMap.mode == "off") ) )
     ) {
         
         if (inMap.count <= 3) { // Retry 2 times for a maximum of 3 total tries.
