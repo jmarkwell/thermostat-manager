@@ -1,6 +1,8 @@
 # Thermostat Manager
 Automatically changes thermostat mode in response to changes in temperature that exceed user defined thresholds.
 
+## Standard Installation
+
 To Install **Thermostat Manager** Smart App:
 
 1. Login to the [SmartThings IDE](https://account.smartthings.com/).
@@ -11,6 +13,8 @@ To Install **Thermostat Manager** Smart App:
 6. Click the **Create** button.
 7. Click the **Save** button.
 8. Click the **Publish** button and click **For Me**.
+
+## GitHub Installation
 
 If you would like to add the Thermostat Manager GitHub repository to your SmartThings IDE for easy updates, follow these steps:
 
