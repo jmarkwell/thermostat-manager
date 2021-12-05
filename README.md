@@ -1,7 +1,7 @@
 # Thermostat Manager
 Automatically changes thermostat mode in response to changes in temperature that exceed user defined thresholds.
 
-If you need assistance or if you would like to learn more, check out [Thermostat Managers posting in the SmartThings Community forum] (https://community.smartthings.com/t/release-thermostat-manager-an-alternative-to-thermostat-mode-director/).
+If you need assistance or if you would like to learn more, check out [Thermostat Manager's posting in the SmartThings Community forum](https://community.smartthings.com/t/release-thermostat-manager-an-alternative-to-thermostat-mode-director/).
 
 ## Standard Installation
 
